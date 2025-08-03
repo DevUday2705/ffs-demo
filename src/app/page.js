@@ -1,103 +1,325 @@
-import Image from "next/image";
+"use client";
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { useInitializeUser, useSendOTP, useValidateOTP } from '@/hooks/useApi';
+import { storage } from '@/shared/utils';
 
-export default function Home() {
+const LoginPage = () => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const reqno = searchParams.get('reqno'); // Get reqno from URL parameter
+
+  const [email, setEmail] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [countdown, setCountdown] = useState(0);
+
+  // React Query: initialize user
+  const {
+    data: userInitData,
+    isLoading: isLoadingUser,
+    error: userInitError,
+    isSuccess: isUserInitSuccess
+  } = useInitializeUser(reqno);
+
+  // React Query: send OTP
+  const sendOTPMutation = useSendOTP();
+  // React Query: validate OTP
+  const validateOTPMutation = useValidateOTP();
+
+  // Set email/mobile from userInitData
+  useEffect(() => {
+    if (userInitData?.success && userInitData.data) {
+      setEmail(userInitData.data.CustEmail);
+      setMobile(userInitData.data.CustMobile);
+      setSuccess('Ready to login!');
+      // Store in localStorage for session
+      storage.setDecryptedID(userInitData.decryptedID);
+      storage.setUserData(userInitData.data);
+    } else if (userInitError) {
+      setError(userInitError.message || 'Failed to load user data');
+    }
+  }, [userInitData, userInitError]);
+
+  useEffect(() => {
+    if (!reqno) {
+      setError('Invalid login link. Please use the correct access link.');
+    }
+  }, [reqno]);
+
+
+
+  // Countdown timer
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
+
+  const handleSendOtp = async () => {
+    setError('');
+    setSuccess('');
+    setIsLoading(true);
+    try {
+      await sendOTPMutation.mutateAsync(reqno);
+      setIsOtpSent(true);
+      setCountdown(30);
+      setSuccess('OTP sent successfully!');
+    } catch (err) {
+      setError(err.message || 'Error sending OTP');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOtpChange = (index, value) => {
+    if (value.length > 1) return;
+
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+
+    // Auto-focus next input
+    if (value && index < 5) {
+      document.getElementById(`otp-${index + 1}`)?.focus();
+    }
+  };
+
+  const handleKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      document.getElementById(`otp-${index - 1}`)?.focus();
+    }
+  };
+  const handleVerifyOtp = async () => {
+    const otpValue = otp.join('');
+    if (otpValue.length !== 6) {
+      setError('Please enter complete OTP');
+      return;
+    }
+    setIsVerifying(true);
+    setError('');
+    setSuccess('');
+    try {
+      const userData = storage.getUserData();
+      if (!userData) {
+        throw new Error('Session expired. Please refresh and try again.');
+      }
+      const result = await validateOTPMutation.mutateAsync({ reqNo: userData?.ReqNo, otp: otpValue });
+      if (result.data?.value?.message !== 'Valid') {
+        throw new Error(result.error || 'OTP verification failed');
+      }
+      setSuccess('Login successful! Redirecting...');
+      setTimeout(() => router.push('/dashboard'), 1500);
+    } catch (err) {
+      setError(err.message || 'OTP verification failed');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+  const handleBack = () => {
+    setIsOtpSent(false);
+    setOtp(['', '', '', '', '', '']);
+    setError('');
+    setSuccess('');
+  };
+
+  // Show loading while fetching user data
+  if (isLoadingUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-4" />
+            <p className="text-gray-600">Loading your details...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  if (userInitError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Alert className="border-red-200 bg-red-50 mb-4">
+              <AlertDescription className="text-red-800">{userInitError.message || 'Failed to load user data'}</AlertDescription>
+            </Alert>
+            <p className="text-gray-600">Please check your login link or try again later.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+
+  // const testAPI = async () => {
+  //   console.log('Testing API...');
+  //   const result = await fetch('/api/initialize-user', {
+  //     method: 'POST',
+  //     headers: { 'Content-Type': 'application/json' },
+  //     body: JSON.stringify({ reqno: 'U2FsdGVkX18Ax1VBSDXemIe6HgAXlswQcp7OEVSyayyD66FD-5kmCgPzmKHKU-YS' }),
+  //   });
+  //   const data = await result.json();
+  //   console.log('Test result:', data);
+  // };
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      {/* <button onClick={testAPI}>Test API</button> */}
+      <Card className="w-full max-w-md shadow-xl">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl font-bold text-gray-900">
+            {isOtpSent ? 'Verify OTP' : 'Sign In'}
+          </CardTitle>
+          <CardDescription className="text-gray-600">
+            {isOtpSent
+              ? 'Enter the 6-digit code sent to your contact'
+              : 'Your details are pre-filled. Click Send OTP to continue.'
+            }
+          </CardDescription>
+        </CardHeader>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        <CardContent className="space-y-6">
+          {error && (
+            <Alert className="border-red-200 bg-red-50">
+              <AlertDescription className="text-red-800">{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {success && (
+            <Alert className="border-green-200 bg-green-50">
+              <AlertDescription className="text-green-800">{success}</AlertDescription>
+            </Alert>
+          )}
+
+          {!isOtpSent ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Email Address</Label>
+                <Input
+                  type="email"
+                  value={email}
+                  readOnly
+                  className="h-12"
+                  placeholder={isLoadingUser ? "Loading..." : "Enter email address"}
+                // Disabled during loading or when email has value
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Mobile Number</Label>
+                <Input
+                  type="tel"
+                  value={mobile}
+                  onChange={(e) => setMobile(e.target.value)}
+                  className="h-12"
+                  readOnly
+                  placeholder={isLoadingUser ? "Loading..." : "Enter mobile number"}
+
+                />
+              </div>
+
+              <Button
+                onClick={handleSendOtp}
+                className="w-full h-12"
+                disabled={isLoading || isLoadingUser || (!email && !mobile)}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Sending OTP...
+                  </>
+                ) : isLoadingUser ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  'Send OTP'
+                )}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <Button
+                variant="ghost"
+                onClick={handleBack}
+                className="flex items-center gap-2 p-0 h-auto text-gray-600"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back
+              </Button>
+
+              <div className="space-y-4">
+                <Label className="text-center block">Enter 6-digit OTP</Label>
+                <div className="flex gap-2 justify-center">
+                  {otp.map((digit, index) => (
+                    <Input
+                      key={index}
+                      id={`otp-${index}`}
+                      type="text"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleOtpChange(index, e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(index, e)}
+                      className="w-12 h-12 text-center text-lg font-bold"
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <Button
+                onClick={handleVerifyOtp}
+                className="w-full h-12"
+                disabled={isVerifying}
+              >
+                {isVerifying ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  'Verify & Login'
+                )}
+              </Button>
+
+              <div className="text-center">
+                <Button
+                  variant="link"
+                  onClick={() => countdown === 0 && handleSendOtp()}
+                  disabled={countdown > 0}
+                  className="text-sm"
+                >
+                  {countdown > 0 ? `Resend in ${countdown}s` : 'Resend OTP'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="text-center text-sm text-gray-500 pt-4 border-t">
+            <p>Demo: Use OTP <span className="font-mono font-bold">123456</span></p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
+  );
+};
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div className="p-4 text-gray-500">Loading login...</div>}>
+      <LoginPage />
+    </Suspense>
   );
 }

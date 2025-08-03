@@ -1,0 +1,7 @@
+applications:
+  - name: your-nextjs-app
+    memory: 2G
+    disk_quota: 2G
+    buildpacks:
+      - nodejs_buildpack
+    command: npm start
