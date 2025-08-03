@@ -18,7 +18,7 @@ export const clientStorage = {
     },
 
     getUserData: () => {
-        if (typeof window === 'undefined') {
+        if (typeof window === 'undefined ') {
             return null;
         }
 
