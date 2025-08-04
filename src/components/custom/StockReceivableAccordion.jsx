@@ -13,6 +13,13 @@ import {
 } from "@/components/ui/accordion";
 import { useState } from "react";
 import FieldInfoModal from "./CustomModal";
+import BarcodeTokenApproved from "../custom/BarcodeTokenApproved";
+import BarcodeTokenPending from "../custom/BarcodeTokenPending";
+import BarcodeTokenRejected from "./BarcodeTokenRejected";
+import SiteRebateApproved from "./SiteRebateApproved";
+import SiteRebatePending from "./SiteRebatePending";
+import SiteRebateRejected from "./SiteRebateRejected";
+
 export const StockReceivableAccordion = ({
   sectionRef,
   sectionId,
@@ -24,19 +31,136 @@ export const StockReceivableAccordion = ({
     row: null,
     field: null,
     content: "",
+    title: "Field Information",
   });
-  const handleInfoClick = (row, col) => {
-    // You can customize this logic to fetch/generate info based on row/col
+
+  const SecondarySchemesApproved = () => (
+    <div>Secondary Schemes Approved Info</div>
+  );
+  const SecondarySchemesPending = () => (
+    <div>Secondary Schemes Pending Info</div>
+  );
+  const SecondarySchemesRejected = () => (
+    <div>Secondary Schemes Rejected Info</div>
+  );
+
+  const getInfoComponent = (rowLabel, columnLabel) => {
+    switch (`${rowLabel}__${columnLabel}`) {
+      case "secondary schemes settled through credit notes, Gift, Trips, Discounts, etc__Claim Approved":
+        return <SecondarySchemesApproved />;
+      case "secondary schemes settled through credit notes, Gift, Trips, Discounts, etc__Claim Pending":
+        return <SecondarySchemesPending />;
+      case "secondary schemes settled through credit notes, Gift, Trips, Discounts, etc__Claim Rejected":
+        return <SecondarySchemesRejected />;
+      case "Site Rebate, Modern trade, Joinery, Sales Return, Product Damage/Disposal, Rate difference and Sample related claims__Claim Approved":
+        return <SiteRebateApproved />;
+      case "Site Rebate, Modern trade, Joinery, Sales Return, Product Damage/Disposal, Rate difference and Sample related claims__Claim Pending":
+        return <SiteRebatePending />;
+      case "Site Rebate, Modern trade, Joinery, Sales Return, Product Damage/Disposal, Rate difference and Sample related claims__Claim Rejected":
+        return <SiteRebateRejected />;
+      case "Barcode Token claims__Claim Approved":
+        return <BarcodeTokenApproved />;
+      case "Barcode Token claims__Claim Pending":
+        return <BarcodeTokenPending />;
+      case "Barcode Token claims__Claim Rejected":
+        return <BarcodeTokenRejected />;
+      default:
+        return <div>No additional information available.</div>;
+    }
+  };
+
+  const handleInfoClick = (rowIndex, field, rowLabel, columnLabel) => {
     setModalState({
       open: true,
-      row,
-      col,
-      content: row.info || "No additional info available.",
+      row: rowIndex,
+      field: field,
+      content: getInfoComponent(rowLabel, columnLabel),
+      title: `${columnLabel} - ${rowLabel}`,
     });
   };
+
+  // Function to get info content based on row and column
+  const getInfoContent = (rowLabel, columnLabel) => {
+    const infoMap = {
+      "secondary schemes settled through credit notes, Gift, Trips, Discounts, etc":
+        {
+          "Claim Approved":
+            "Information about approved claims for secondary schemes including credit notes, gifts, trips, and discounts.",
+          "Claim Pending":
+            "Details about pending claims for secondary schemes that are awaiting approval or processing.",
+          "Claim Rejected":
+            "Information about rejected claims for secondary schemes and the reasons for rejection.",
+        },
+      "Site Rebate, Modern trade, Joinery, Sales Return, Product Damage/Disposal, Rate difference and Sample related claims":
+        {
+          "Claim Approved":
+            "Information about approved claims for site rebates, modern trade, joinery, sales returns, product damage/disposal, rate differences and sample related claims.",
+          "Claim Pending":
+            "Details about pending claims for site rebates, modern trade, joinery, sales returns, product damage/disposal, rate differences and sample related claims.",
+          "Claim Rejected":
+            "Information about rejected claims for site rebates, modern trade, joinery, sales returns, product damage/disposal, rate differences and sample related claims.",
+        },
+      "Barcode Token claims": {
+        "Claim Approved":
+          "Information about approved claims for barcode token claims.",
+        "Claim Pending":
+          "Details about pending claims for barcode token claims.",
+        "Claim Rejected":
+          "Information about rejected claims for barcode token claims.",
+      },
+    };
+
+    return (
+      infoMap[rowLabel]?.[columnLabel] || "No additional information available."
+    );
+  };
+
+  // Function to check if a cell should have an info icon
+  const shouldShowInfoIcon = (rowLabel, columnLabel) => {
+    const infoRows = [
+      "secondary schemes settled through credit notes, Gift, Trips, Discounts, etc",
+      "Site Rebate, Modern trade, Joinery, Sales Return, Product Damage/Disposal, Rate difference and Sample related claims",
+      "Barcode Token claims",
+    ];
+    const infoCols = ["Claim Approved", "Claim Pending", "Claim Rejected"];
+
+    return infoRows.includes(rowLabel) && infoCols.includes(columnLabel);
+  };
+
   const data = {
     title: "Stock And Receivable",
     rows: [
+      {
+        label: "Last NCC ref no & date",
+        autoPopulated: "NA",
+        actualConfirmation: "0",
+        discrepancy: "NA",
+        remarks: "NA",
+        field5: "NA",
+        field6: "NA",
+        hasAttachment: true,
+      },
+      {
+        label: "Last claim received post NCC ref no. & date",
+        autoPopulated: "NA",
+        actualConfirmation: "0",
+        discrepancy: "NA",
+        remarks: "NA",
+        field5: "NA",
+        field6: "NA",
+        hasAttachment: true,
+      },
+      {
+        label:
+          "secondary schemes settled through credit notes, Gift, Trips, Discounts, etc",
+        autoPopulated: "NA",
+        actualConfirmation: "0",
+        discrepancy: "NA",
+        remarks: "NA",
+        field5: "NA",
+        field6: "NA",
+        hasAttachment: true,
+      },
       {
         label: "Claims for Stock loss amounts (as per defined policy)",
         autoPopulated: "NA",
@@ -46,11 +170,6 @@ export const StockReceivableAccordion = ({
         field5: "NA",
         field6: "NA",
         hasAttachment: true,
-        infoFields: {
-          actualConfirmation:
-            "This is the actual confirmation info for this row.",
-          discrepancy: "This is the discrepancy info for this row.",
-        },
       },
       {
         label: "Claims for WSS Incentive",
@@ -146,7 +265,7 @@ export const StockReceivableAccordion = ({
             className="w-full"
           >
             <AccordionItem value="item-0" className="border-0">
-              <AccordionTrigger className=" py-4 hover:no-underline">
+              <AccordionTrigger className="px-6 py-4 hover:no-underline">
                 <div className="flex items-center space-x-3">
                   <div
                     className={`w-3 h-3 rounded-full ${
@@ -212,64 +331,110 @@ export const StockReceivableAccordion = ({
                             {row.label}
                           </Label>
                         </div>
-                        <div>
+
+                        {/* Date and Reference No */}
+                        <div className="flex items-center space-x-1">
                           <Input
                             readOnly
                             value={row.autoPopulated}
                             disabled
-                            className="bg-white/70 border-gray-200 text-sm"
+                            className="bg-white/70 border-gray-200 text-sm flex-1"
                           />
                         </div>
-                        <div>
+
+                        {/* Claim Received */}
+                        <div className="flex items-center space-x-1">
                           <Input
                             readOnly
                             value={row.actualConfirmation}
                             disabled
-                            className="bg-white/70 border-gray-200 text-sm"
+                            className="bg-white/70 border-gray-200 text-sm flex-1"
                           />
-                          {row.infoFields?.actualConfirmation && (
+                        </div>
+
+                        {/* Claim Approved */}
+                        <div className="flex items-center space-x-1">
+                          <Input
+                            readOnly
+                            value={row.discrepancy}
+                            disabled
+                            className="bg-white/70 border-gray-200 text-sm flex-1"
+                          />
+                          {shouldShowInfoIcon(row.label, "Claim Approved") && (
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="ml-1"
+                              className="flex-shrink-0 w-8 h-8"
                               onClick={() =>
-                                setModalState({
-                                  open: true,
-                                  row: index,
-                                  field: "actualConfirmation",
-                                  content: row.infoFields.actualConfirmation,
-                                })
+                                handleInfoClick(
+                                  index,
+                                  "discrepancy",
+                                  row.label,
+                                  "Claim Approved"
+                                )
                               }
                             >
                               <AlignLeft className="w-4 h-4 text-blue-500" />
                             </Button>
                           )}
                         </div>
-                        <div>
-                          <Input
-                            readOnly
-                            value={row.discrepancy}
-                            disabled
-                            className="bg-white/70 border-gray-200 text-sm"
-                          />
-                        </div>
-                        <div>
+
+                        {/* Claim Pending */}
+                        <div className="flex items-center space-x-1">
                           <Input
                             readOnly
                             value={row.remarks}
                             disabled
-                            className="bg-white/70 border-gray-200 text-sm"
+                            className="bg-white/70 border-gray-200 text-sm flex-1"
                           />
+                          {shouldShowInfoIcon(row.label, "Claim Pending") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="flex-shrink-0 w-8 h-8"
+                              onClick={() =>
+                                handleInfoClick(
+                                  index,
+                                  "remarks",
+                                  row.label,
+                                  "Claim Pending"
+                                )
+                              }
+                            >
+                              <AlignLeft className="w-4 h-4 text-blue-500" />
+                            </Button>
+                          )}
                         </div>
-                        <div>
+
+                        {/* Claim Rejected */}
+                        <div className="flex items-center space-x-1">
                           <Input
                             readOnly
                             value={row.field5}
                             disabled
-                            className="bg-white/70 border-gray-200 text-sm"
+                            className="bg-white/70 border-gray-200 text-sm flex-1"
                           />
+                          {shouldShowInfoIcon(row.label, "Claim Rejected") && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="flex-shrink-0 w-8 h-8"
+                              onClick={() =>
+                                handleInfoClick(
+                                  index,
+                                  "field5",
+                                  row.label,
+                                  "Claim Rejected"
+                                )
+                              }
+                            >
+                              <AlignLeft className="w-4 h-4 text-blue-500" />
+                            </Button>
+                          )}
                         </div>
-                        <div className="flex items-center space-x-2">
+
+                        {/* Remarks */}
+                        <div className="flex items-center space-x-1">
                           <Input
                             readOnly
                             value={row.field6}
@@ -281,7 +446,7 @@ export const StockReceivableAccordion = ({
                               variant="outline"
                               size="sm"
                               onClick={() => onFileUpload(1, index)}
-                              className="flex items-center justify-center hover:bg-blue-50 hover:border-blue-300 w-10 h-8"
+                              className="flex items-center justify-center hover:bg-blue-50 hover:border-blue-300 flex-shrink-0 w-8 h-8"
                             >
                               <Paperclip className="w-4 h-4" />
                             </Button>
@@ -305,64 +470,131 @@ export const StockReceivableAccordion = ({
                       <div className="space-y-3">
                         <div>
                           <Label className="font-medium text-gray-600 text-xs mb-1 block">
-                            Auto Populated Value(₹)
+                            Date and Reference No
                           </Label>
-                          <Input
-                            readOnly
-                            value={row.autoPopulated}
-                            disabled
-                            className="bg-white/70 border-gray-200 text-sm"
-                          />
+                          <div className="flex items-center space-x-1">
+                            <Input
+                              readOnly
+                              value={row.autoPopulated}
+                              disabled
+                              className="bg-white/70 border-gray-200 text-sm flex-1"
+                            />
+                          </div>
                         </div>
                         <div>
                           <Label className="font-medium text-gray-600 text-xs mb-1 block">
-                            Actual Confirmation
+                            Claim Received
                           </Label>
-                          <Input
-                            readOnly
-                            value={row.actualConfirmation}
-                            disabled
-                            className="bg-white/70 border-gray-200 text-sm"
-                          />
+                          <div className="flex items-center space-x-1">
+                            <Input
+                              readOnly
+                              value={row.actualConfirmation}
+                              disabled
+                              className="bg-white/70 border-gray-200 text-sm flex-1"
+                            />
+                          </div>
                         </div>
                         <div>
                           <Label className="font-medium text-gray-600 text-xs mb-1 block">
-                            Discrepancy/Difference(₹)
+                            Claim Approved
                           </Label>
-                          <Input
-                            readOnly
-                            value={row.discrepancy}
-                            disabled
-                            className="bg-white/70 border-gray-200 text-sm"
-                          />
+                          <div className="flex items-center space-x-1">
+                            <Input
+                              readOnly
+                              value={row.discrepancy}
+                              disabled
+                              className="bg-white/70 border-gray-200 text-sm flex-1"
+                            />
+                            {shouldShowInfoIcon(
+                              row.label,
+                              "Claim Approved"
+                            ) && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="flex-shrink-0 w-8 h-8"
+                                onClick={() =>
+                                  handleInfoClick(
+                                    index,
+                                    "discrepancy",
+                                    row.label,
+                                    "Claim Approved"
+                                  )
+                                }
+                              >
+                                <AlignLeft className="w-4 h-4 text-blue-500" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="font-medium text-gray-600 text-xs mb-1 block">
+                            Claim Pending
+                          </Label>
+                          <div className="flex items-center space-x-1">
+                            <Input
+                              readOnly
+                              value={row.remarks}
+                              disabled
+                              className="bg-white/70 border-gray-200 text-sm flex-1"
+                            />
+                            {shouldShowInfoIcon(row.label, "Claim Pending") && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="flex-shrink-0 w-8 h-8"
+                                onClick={() =>
+                                  handleInfoClick(
+                                    index,
+                                    "remarks",
+                                    row.label,
+                                    "Claim Pending"
+                                  )
+                                }
+                              >
+                                <AlignLeft className="w-4 h-4 text-blue-500" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="font-medium text-gray-600 text-xs mb-1 block">
+                            Claim Rejected
+                          </Label>
+                          <div className="flex items-center space-x-1">
+                            <Input
+                              readOnly
+                              value={row.field5}
+                              disabled
+                              className="bg-white/70 border-gray-200 text-sm flex-1"
+                            />
+                            {shouldShowInfoIcon(
+                              row.label,
+                              "Claim Rejected"
+                            ) && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="flex-shrink-0 w-8 h-8"
+                                onClick={() =>
+                                  handleInfoClick(
+                                    index,
+                                    "field5",
+                                    row.label,
+                                    "Claim Rejected"
+                                  )
+                                }
+                              >
+                                <AlignLeft className="w-4 h-4 text-blue-500" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         <div>
                           <Label className="font-medium text-gray-600 text-xs mb-1 block">
                             Remarks
                           </Label>
-                          <Input
-                            readOnly
-                            value={row.remarks}
-                            disabled
-                            className="bg-white/70 border-gray-200 text-sm"
-                          />
-                        </div>
-                        <div>
-                          <Label className="font-medium text-gray-600 text-xs mb-1 block">
-                            Field 5
-                          </Label>
-                          <Input
-                            readOnly
-                            value={row.field5}
-                            disabled
-                            className="bg-white/70 border-gray-200 text-sm"
-                          />
-                        </div>
-                        <div>
-                          <Label className="font-medium text-gray-600 text-xs mb-1 block">
-                            Field 6
-                          </Label>
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-1">
                             <Input
                               readOnly
                               value={row.field6}
@@ -374,7 +606,7 @@ export const StockReceivableAccordion = ({
                                 variant="outline"
                                 size="sm"
                                 onClick={() => onFileUpload(1, index)}
-                                className="flex items-center justify-center hover:bg-blue-50 hover:border-blue-300 w-10 h-8"
+                                className="flex items-center justify-center hover:bg-blue-50 hover:border-blue-300 flex-shrink-0 w-8 h-8"
                               >
                                 <Paperclip className="w-4 h-4" />
                               </Button>
@@ -390,10 +622,12 @@ export const StockReceivableAccordion = ({
           </Accordion>
         </CardContent>
       </Card>
+
       <FieldInfoModal
         open={modalState.open}
         onOpenChange={(open) => setModalState((s) => ({ ...s, open }))}
         content={modalState.content}
+        title={modalState.title}
       />
     </>
   );

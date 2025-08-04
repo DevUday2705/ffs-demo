@@ -172,6 +172,8 @@ export async function generateOTP(encryptedID) {
     }
 }
 
+
+
 // Optimized validateOTP function
 export async function validateOTP(reqNo, otp) {
     try {

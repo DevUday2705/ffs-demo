@@ -14,7 +14,7 @@ export default function FieldInfoModal({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-7xl">
         <DialogHeader>
           <DialogTitle className="text-base text-gray-900 font-semibold">
             {title}

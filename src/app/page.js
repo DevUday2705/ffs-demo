@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ArrowLeft, Loader2 } from 'lucide-react';
-import { useInitializeUser, useSendOTP, useValidateOTP } from '@/hooks/useApi';
+import { useInitializeUser, useResendOTP, useSendOTP, useValidateOTP } from '@/hooks/useApi';
 import { storage } from '@/shared/utils';
+import { resendOTP } from './utils/api';
 
 const LoginPage = () => {
   const router = useRouter();
@@ -24,7 +25,6 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [countdown, setCountdown] = useState(0);
-
   // React Query: initialize user
   const {
     data: userInitData,
@@ -35,6 +35,8 @@ const LoginPage = () => {
 
   // React Query: send OTP
   const sendOTPMutation = useSendOTP();
+  // React Query: send OTP
+
   // React Query: validate OTP
   const validateOTPMutation = useValidateOTP();
 
@@ -57,7 +59,6 @@ const LoginPage = () => {
       setError('Invalid login link. Please use the correct access link.');
     }
   }, [reqno]);
-
 
 
   // Countdown timer
@@ -83,6 +84,7 @@ const LoginPage = () => {
       setIsLoading(false);
     }
   };
+
 
   const handleOtpChange = (index, value) => {
     if (value.length > 1) return;
@@ -299,6 +301,7 @@ const LoginPage = () => {
                   variant="link"
                   onClick={() => countdown === 0 && handleSendOtp()}
                   disabled={countdown > 0}
+
                   className="text-sm"
                 >
                   {countdown > 0 ? `Resend in ${countdown}s` : 'Resend OTP'}

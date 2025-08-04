@@ -33,6 +33,19 @@ export function useSendOTP() {
         },
     });
 }
+export function useResendOTP() {
+    return useMutation({
+        mutationFn: async (decryptedID) => {
+            const response = await fetch('/api/resend-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ decryptedID }),
+            });
+            if (!response.ok) throw new Error('Failed to send OTP');
+            return response.json();
+        },
+    });
+}
 
 // Validate OTP
 export function useValidateOTP() {

@@ -51,7 +51,6 @@ export const BMForm1Accordion = ({
           discrepancy: "9149598.81",
           remarks: "NA",
           hasAttachment: true,
-          infoFields: bmFormInfoFieldsMap[0] || {},
         },
         {
           id: "2",
@@ -61,7 +60,6 @@ export const BMForm1Accordion = ({
           discrepancy: "1043472.81",
           remarks: "NA",
           hasAttachment: false,
-          infoFields: bmFormInfoFieldsMap[1] || {},
         },
         {
           id: "3",
@@ -72,7 +70,6 @@ export const BMForm1Accordion = ({
           discrepancy: "0",
           remarks: "NA",
           hasAttachment: true,
-          infoFields: {},
         },
         {
           id: "4",
@@ -83,7 +80,6 @@ export const BMForm1Accordion = ({
           discrepancy: "0",
           remarks: "NA",
           hasAttachment: false,
-          infoFields: {},
         },
       ]);
     }
@@ -183,22 +179,6 @@ export const BMForm1Accordion = ({
                           disabled
                           className="bg-white/70 border-gray-200 text-sm"
                         />
-                        {row.infoFields?.autoPopulated && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="ml-1 w-8 h-8"
-                            onClick={() =>
-                              handleInfoClick(
-                                "Auto Populated Value",
-                                row.infoFields.autoPopulated,
-                                row.label
-                              )
-                            }
-                          >
-                            <AlignLeft className="w-4 h-4 text-blue-500" />
-                          </Button>
-                        )}
                       </div>
                       <div className="flex items-center">
                         <Input
@@ -207,22 +187,6 @@ export const BMForm1Accordion = ({
                           disabled
                           className="bg-white/70 border-gray-200 text-sm"
                         />
-                        {row.infoFields?.actualConfirmation && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="ml-1 w-8 h-8"
-                            onClick={() =>
-                              handleInfoClick(
-                                "Actual Confirmation",
-                                row.infoFields.actualConfirmation,
-                                row.label
-                              )
-                            }
-                          >
-                            <AlignLeft className="w-4 h-4 text-blue-500" />
-                          </Button>
-                        )}
                       </div>
                       <div className="flex items-center">
                         <Input
@@ -231,22 +195,6 @@ export const BMForm1Accordion = ({
                           disabled
                           className="bg-white/70 border-gray-200 text-sm"
                         />
-                        {row.infoFields?.discrepancy && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="ml-1 w-8 h-8"
-                            onClick={() =>
-                              handleInfoClick(
-                                "Discrepancy/Difference",
-                                row.infoFields.discrepancy,
-                                row.label
-                              )
-                            }
-                          >
-                            <AlignLeft className="w-4 h-4 text-blue-500" />
-                          </Button>
-                        )}
                       </div>
                       <div className="flex items-center space-x-2">
                         <Input
@@ -255,22 +203,7 @@ export const BMForm1Accordion = ({
                           disabled
                           className="bg-white/70 border-gray-200 text-sm flex-1"
                         />
-                        {row.infoFields?.remarks && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="w-8 h-8"
-                            onClick={() =>
-                              handleInfoClick(
-                                "Remarks",
-                                row.infoFields.remarks,
-                                row.label
-                              )
-                            }
-                          >
-                            <AlignLeft className="w-4 h-4 text-blue-500" />
-                          </Button>
-                        )}
+
                         {row.hasAttachment && (
                           <Button
                             variant="outline"
@@ -434,12 +367,6 @@ export const BMForm1Accordion = ({
       </CardContent>
 
       {/* Info Modal */}
-      <FieldInfoModal
-        open={modalState.open}
-        onOpenChange={(open) => setModalState((s) => ({ ...s, open }))}
-        content={modalState.content}
-        title={modalState.title}
-      />
     </Card>
   );
 };

@@ -46,7 +46,6 @@ export const PILLiabilityAccordion = ({
           amount: "0",
           remarks: "NA",
           hasAttachment: true,
-          infoFields: pilLiabilityInfoFieldsMap[0] || {},
         },
         {
           id: "2",
@@ -54,7 +53,6 @@ export const PILLiabilityAccordion = ({
           amount: "0",
           remarks: "NA",
           hasAttachment: true,
-          infoFields: pilLiabilityInfoFieldsMap[1] || {},
         },
         {
           id: "3",
@@ -62,7 +60,6 @@ export const PILLiabilityAccordion = ({
           amount: "0",
           remarks: "58023.84",
           hasAttachment: true,
-          infoFields: {},
         },
       ]);
     }
@@ -153,7 +150,7 @@ export const PILLiabilityAccordion = ({
                             disabled
                             className="bg-white/70 border-gray-200 text-sm flex-1"
                           />
-                          {row.infoFields?.amount && (
+                          {/* {row.infoFields?.amount && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -168,7 +165,7 @@ export const PILLiabilityAccordion = ({
                             >
                               <AlignLeft className="w-4 h-4 text-blue-500" />
                             </Button>
-                          )}
+                          )} */}
                         </div>
 
                         {/* Remarks field with info icon and attachment - Match BM Form exactly */}
@@ -179,7 +176,7 @@ export const PILLiabilityAccordion = ({
                             disabled
                             className="bg-white/70 border-gray-200 text-sm flex-1"
                           />
-                          {row.infoFields?.remarks && (
+                          {/* {row.infoFields?.remarks && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -194,7 +191,7 @@ export const PILLiabilityAccordion = ({
                             >
                               <AlignLeft className="w-4 h-4 text-blue-500" />
                             </Button>
-                          )}
+                          )} */}
                           {row.hasAttachment && (
                             <Button
                               variant="outline"
@@ -262,7 +259,7 @@ export const PILLiabilityAccordion = ({
                               disabled
                               className="bg-white/70 border-gray-200 text-sm flex-1"
                             />
-                            {row.infoFields?.remarks && (
+                            {/* {row.infoFields?.remarks && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -277,7 +274,7 @@ export const PILLiabilityAccordion = ({
                               >
                                 <AlignLeft className="w-4 h-4 text-blue-500" />
                               </Button>
-                            )}
+                            )} */}
                             {row.hasAttachment && (
                               <Button
                                 variant="outline"
@@ -300,12 +297,12 @@ export const PILLiabilityAccordion = ({
         </CardContent>
       </Card>
 
-      <FieldInfoModal
+      {/* <FieldInfoModal
         open={modalState.open}
         onOpenChange={(open) => setModalState((s) => ({ ...s, open }))}
         content={modalState.content}
         title={modalState.title}
-      />
+      /> */}
     </>
   );
 };
