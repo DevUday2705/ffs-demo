@@ -19,6 +19,9 @@ import BarcodeTokenRejected from "./BarcodeTokenRejected";
 import SiteRebateApproved from "./SiteRebateApproved";
 import SiteRebatePending from "./SiteRebatePending";
 import SiteRebateRejected from "./SiteRebateRejected";
+import SecondarySchemesApproved from "./SecondarySchemesApproved";
+import SecondarySchemesPending from "./SecondarySchemesPending";
+import SecondarySchemesRejected from "./SecondarySchemesRejected";
 
 export const StockReceivableAccordion = ({
   sectionRef,
@@ -33,16 +36,6 @@ export const StockReceivableAccordion = ({
     content: "",
     title: "Field Information",
   });
-
-  const SecondarySchemesApproved = () => (
-    <div>Secondary Schemes Approved Info</div>
-  );
-  const SecondarySchemesPending = () => (
-    <div>Secondary Schemes Pending Info</div>
-  );
-  const SecondarySchemesRejected = () => (
-    <div>Secondary Schemes Rejected Info</div>
-  );
 
   const getInfoComponent = (rowLabel, columnLabel) => {
     switch (`${rowLabel}__${columnLabel}`) {

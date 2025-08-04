@@ -117,10 +117,7 @@ export async function initializeUser(reqno) {
 
         // Store everything in localStorage
         storage.setDecryptedID(decryptedID);
-        storage.setUserData(userDetails);
-
-
-
+        storage.setUserData(userDetails)
         return {
             success: true,
             data: userDetails,

@@ -253,7 +253,7 @@ export default function Dashboard() {
       setReqNo(userData.ReqNo);
     }
   }, []);
-
+  console.log(reqNo);
   const handleSubmit = () => {
     alert("Submit Clicked");
   };

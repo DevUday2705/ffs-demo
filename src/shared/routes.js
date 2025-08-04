@@ -1,5 +1,3 @@
-
-
 export const API_CONFIG = {
     tokenURL: 'https://dev-qas-lrnolmj4.authentication.us10.hana.ondemand.com/oauth/token',
     encryptURL: 'https://pidilite-industries-ltd-dev-qas-lrnolmj4-dev-ffspidilite-srv.cfapps.us10.hana.ondemand.com/odata/v4/Offboadring/decryptReqID',
