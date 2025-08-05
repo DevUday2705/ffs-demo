@@ -1,56 +1,181 @@
-// utils/api.js - Fixed API utility functions with localStorage
+// utils/api.js - Cookie-based API utility functions
 import { API_CONFIG } from '@/shared/routes';
-import { storage } from '../../shared/utils'
-import { getCachedToken, storeToken } from '../../../utils/tokencache';
+import { storage } from '../../shared/utils';
 
+// Cookie Token Manager with environment checks
+class CookieTokenManager {
+    constructor() {
+        this.tokenCookieName = 'api_access_token';
+        this.expiryCookieName = 'api_token_expiry';
+        this.refreshPromise = null; // Prevent multiple concurrent token requests
+        this.isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
 
-
-// Fixed function to get access token (checks localStorage first)
-
-export async function getAccessToken() {
-    const cached = getCachedToken();
-    if (cached) {
-
-        return cached;
+        // Fallback to in-memory storage if cookies aren't available
+        if (!this.isBrowser) {
+            this.memoryStore = new Map();
+        }
     }
 
-    const credentials = btoa(`${API_CONFIG.clientId}:${API_CONFIG.clientSecret}`);
-    const response = await fetch(API_CONFIG.tokenURL, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Basic ${credentials}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-            grant_type: 'client_credentials',
-            client_id: API_CONFIG.clientId,
-            client_secret: API_CONFIG.clientSecret,
-        }),
-    });
+    setCookie(name, value, expiresIn) {
+        if (!this.isBrowser) {
+            // Store in memory with expiration time
+            this.memoryStore.set(name, {
+                value,
+                expires: Date.now() + expiresIn * 1000
+            });
+            return;
+        }
 
-    if (!response.ok) {
-        throw new Error('Failed to get access token');
+        const expires = new Date(Date.now() + expiresIn * 1000);
+        document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/; secure; samesite=strict`;
     }
 
-    const data = await response.json();
-    const token = data.access_token;
-    console.log(token)
-    const expiresIn = data.expires_in || 3600;
+    getCookie(name) {
+        if (!this.isBrowser) {
+            const stored = this.memoryStore.get(name);
+            if (stored && Date.now() < stored.expires) {
+                return stored.value;
+            }
+            this.memoryStore.delete(name); // Clean up expired
+            return null;
+        }
 
-    if (!token) throw new Error("No access_token in response");
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    }
 
-    storeToken(token, expiresIn);
+    deleteCookie(name) {
+        if (!this.isBrowser) {
+            this.memoryStore.delete(name);
+            return;
+        }
 
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/`;
+    }
 
-    return token;
+    isTokenValid() {
+        const token = this.getCookie(this.tokenCookieName);
+        const expiry = this.getCookie(this.expiryCookieName);
+        return token && expiry && Date.now() < parseInt(expiry);
+    }
+
+    getToken() {
+        if (this.isTokenValid()) {
+            return this.getCookie(this.tokenCookieName);
+        }
+        return null;
+    }
+
+    setToken(token, expiresIn) {
+        this.setCookie(this.tokenCookieName, token, expiresIn);
+        // Set expiry with 5-minute buffer to prevent edge cases
+        this.setCookie(this.expiryCookieName, (Date.now() + (expiresIn - 300) * 1000).toString(), expiresIn);
+    }
+
+    clearToken() {
+        this.deleteCookie(this.tokenCookieName);
+        this.deleteCookie(this.expiryCookieName);
+
+        // Also clear memory store if used
+        if (!this.isBrowser) {
+            this.memoryStore.clear();
+        }
+    }
+
+    async fetchNewToken() {
+        const credentials = btoa(`${API_CONFIG.clientId}:${API_CONFIG.clientSecret}`);
+        const response = await fetch(API_CONFIG.tokenURL, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${credentials}`,
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                grant_type: 'client_credentials',
+                client_id: API_CONFIG.clientId,
+                client_secret: API_CONFIG.clientSecret,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to get access token');
+        }
+
+        const data = await response.json();
+        const token = data.access_token;
+        const expiresIn = data.expires_in || 3600;
+
+        if (!token) throw new Error("No access_token in response");
+
+        this.setToken(token, expiresIn);
+        console.log('New token fetched and stored in cookies');
+        return token;
+    }
+
+    async getValidToken(forceRefresh = false) {
+        // Return cached token if valid and not forcing refresh
+        if (!forceRefresh && this.isTokenValid()) {
+            return this.getToken();
+        }
+
+        // If already refreshing, wait for that promise
+        if (this.refreshPromise) {
+            return await this.refreshPromise;
+        }
+
+        // Start token refresh
+        this.refreshPromise = this.fetchNewToken();
+
+        try {
+            const token = await this.refreshPromise;
+            return token;
+        } finally {
+            this.refreshPromise = null;
+        }
+    }
 }
 
-// Simple function to decrypt ID
-async function decryptReqID(encryptedID, accessToken) {
-    const response = await fetch(API_CONFIG.encryptURL, {
+// Create singleton instance
+const cookieTokenManager = new CookieTokenManager();
+
+// Main function to get access token
+export async function getAccessToken(forceRefresh = false) {
+    return await cookieTokenManager.getValidToken(forceRefresh);
+}
+
+// Wrapper function that automatically handles token refresh on 401
+async function makeAuthenticatedRequest(url, options = {}) {
+    let token = await getAccessToken();
+
+    const makeRequest = async (authToken) => {
+        return fetch(url, {
+            ...options,
+            headers: {
+                ...options.headers,
+                'Authorization': `Bearer ${authToken}`,
+            },
+        });
+    };
+
+    let response = await makeRequest(token);
+
+    // If we get 401, try refreshing token once
+    if (response.status === 401) {
+        console.log('Token expired, refreshing...');
+        token = await getAccessToken(true); // Force refresh
+        response = await makeRequest(token);
+    }
+
+    return response;
+}
+
+// Function to decrypt ID with automatic token handling
+async function decryptReqID(encryptedID) {
+    const response = await makeAuthenticatedRequest(API_CONFIG.encryptURL, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -63,16 +188,15 @@ async function decryptReqID(encryptedID, accessToken) {
     }
 
     const data = await response.json();
-    console.log(data.value)
+    console.log('Decrypted ID:', data.value);
     return data.value;
 }
 
-// Simple function to get user details
+// Function to get user details with automatic token handling
 async function getUserDetails(decryptedID) {
     const url = `${API_CONFIG.userDetailsURL}('${decryptedID}')`;
 
-
-    const response = await fetch(url);
+    const response = await makeAuthenticatedRequest(url);
 
     if (!response.ok) {
         const errText = await response.text();
@@ -84,18 +208,14 @@ async function getUserDetails(decryptedID) {
     return data;
 }
 
-// Main function that does all three API calls with localStorage optimization
+// Main function that handles the complete user initialization flow
 export async function initializeUser(reqno) {
     try {
-
-        // Check if we already have this data in localStorage
+        // Check if we already have this data in storage
         const existingDecryptedID = storage.getDecryptedID();
         const existingUserData = storage.getUserData();
 
-
-
         if (existingDecryptedID && existingUserData && storage.hasValidSession()) {
-
             return {
                 success: true,
                 data: existingUserData,
@@ -104,20 +224,19 @@ export async function initializeUser(reqno) {
             };
         }
 
+        // Step 1: Get token (will use cached token from cookies if available)
+        await getAccessToken();
 
-
-        // Step 1: Get token (will use cached if available)
-
-        const accessToken = await getAccessToken();
         // Step 2: Decrypt the reqno to get the actual ID
-        const decryptedID = await decryptReqID(reqno, accessToken);
+        const decryptedID = await decryptReqID(reqno);
 
         // Step 3: Get user details using the decrypted ID
         const userDetails = await getUserDetails(decryptedID);
 
-        // Store everything in localStorage
+        // Store everything in storage (keeping your existing storage for user data)
         storage.setDecryptedID(decryptedID);
-        storage.setUserData(userDetails)
+        storage.setUserData(userDetails);
+
         return {
             success: true,
             data: userDetails,
@@ -133,15 +252,12 @@ export async function initializeUser(reqno) {
     }
 }
 
-// Optimized generateOTP function
+// Generate OTP function with automatic token handling
 export async function generateOTP(encryptedID) {
     try {
-        // Use cached token if available
-        const accessToken = await getAccessToken();
-        const response = await fetch(API_CONFIG.sendOTP, {
+        const response = await makeAuthenticatedRequest(API_CONFIG.sendOTP, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${accessToken}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
@@ -169,18 +285,12 @@ export async function generateOTP(encryptedID) {
     }
 }
 
-
-
-// Optimized validateOTP function
+// Validate OTP function with automatic token handling
 export async function validateOTP(reqNo, otp) {
     try {
-        // Use cached token if available
-        const accessToken = await getAccessToken();
-
-        const response = await fetch(API_CONFIG.validateOTP, {
+        const response = await makeAuthenticatedRequest(API_CONFIG.validateOTP, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${accessToken}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
@@ -208,35 +318,57 @@ export async function validateOTP(reqNo, otp) {
     }
 }
 
-// Utility function to clear all cached data (for logout)
-export function clearUserSession() {
-    storage.clearSession();
+// Upload document function with automatic token handling
+export async function uploadDocumentToService(uploadData) {
+    try {
+        const serviceEndpoint = API_CONFIG.uploadDoc
+
+        const response = await makeAuthenticatedRequest(serviceEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(uploadData),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Service error: ${response.status} - ${errorText}`);
+        }
+
+        const result = await response.json();
+        return { success: true, data: result };
+    } catch (error) {
+        console.error('Document upload service error:', error);
+        return {
+            success: false,
+            error: error.message || 'Failed to upload document to service'
+        };
+    }
 }
 
-// export async function fetchDashboardData(reqNo) {
-//     const decryptedID = storage.getDecryptedID();
-//     const accessToken = storage.getAccessToken();
+// Utility function to clear all cached data (for logout)
+export function clearUserSession() {
+    // Clear token cookies
+    cookieTokenManager.clearToken();
 
-//     if (!decryptedID || !accessToken) {
-//         throw new Error("Missing access token or decrypted ID");
-//     }
+    // Clear other user data from storage
+    if (storage && storage.clearSession) {
+        storage.clearSession();
+    }
+}
 
-//     console.log(
-//         "Calling SAP API with token:",
-//         accessToken.slice(0, 10) + "..."
-//     );
+// Utility function to check if user is authenticated
+export function isAuthenticated() {
+    return cookieTokenManager.isTokenValid();
+}
 
-//     const response = await fetch('/api/dashboard-data', {
-//         method: 'POST',
-//         headers: { 'Content-Type': 'application/json' },
-//         body: JSON.stringify({ accessToken, decryptedID }),
-//     });
-
-//     const result = await response.json();
-
-//     if (!response.ok || !result.success) {
-//         throw new Error(result.error || "Failed to fetch dashboard data");
-//     }
-
-//     return result.data;
-// }
+// Utility function to manually refresh token
+export async function refreshToken() {
+    try {
+        const token = await getAccessToken(true);
+        return { success: true, token };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}

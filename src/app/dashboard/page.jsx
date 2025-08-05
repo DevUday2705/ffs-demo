@@ -29,6 +29,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import IndividualAccordions from "@/components/custom/IndividualAccordions";
 import { useDashboardData } from "@/hooks/useApi";
 import { storage } from "@/shared/utils";
+import WSSBankDetails from "@/components/custom/WSSBankDetails";
 
 // Mock data
 const accordionData = [
@@ -244,7 +245,9 @@ export default function Dashboard() {
   const [allSectionsViewed, setAllSectionsViewed] = useState(false);
   const [reqNo, setReqNo] = useState(null);
   const { data: dashboardData, isLoading, error } = useDashboardData(reqNo);
-  const [loading, setLoading] = useState(false);
+  const [termsChecked, setTermsChecked] = useState(false);
+  const [bankAcknowledged, setBankAcknowledged] = useState(false);
+  const [documentUploaded, setDocumentUploaded] = useState(false);
   const sectionRefs = useRef({});
 
   useEffect(() => {
@@ -253,7 +256,7 @@ export default function Dashboard() {
       setReqNo(userData.ReqNo);
     }
   }, []);
-  console.log(reqNo);
+
   const handleSubmit = () => {
     alert("Submit Clicked");
   };
@@ -719,104 +722,13 @@ export default function Dashboard() {
               </div>
 
               {/* WSS Bank Details */}
-              <div
-                ref={(el) => (sectionRefs.current["wss-bank-details"] = el)}
-                id="wss-bank-details"
-                className="scroll-mt-20"
-              >
-                <Card
-                  className={`
-                    shadow-lg transition-all duration-300 border-2
-                    ${
-                      viewedSections.has("wss-bank-details")
-                        ? "border-green-200 bg-gradient-to-br from-green-50 to-white"
-                        : "border-amber-200 bg-gradient-to-br from-amber-50 to-white"
-                    }
-                  `}
-                >
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center space-x-3">
-                      <div
-                        className={`
-                          w-3 h-3 rounded-full 
-                          ${
-                            viewedSections.has("wss-bank-details")
-                              ? "bg-green-500"
-                              : "bg-amber-500"
-                          }
-                        `}
-                      />
-                      <CardTitle className="text-lg font-semibold text-gray-900">
-                        WSS Bank Details
-                      </CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="bank-name"
-                          className="text-sm font-medium text-gray-700"
-                        >
-                          Bank Name
-                        </Label>
-                        <Input
-                          readOnly
-                          type="text"
-                          id="bank-name"
-                          placeholder="Enter Bank Name"
-                          className="bg-white/70 border-gray-200"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="account-number"
-                          className="text-sm font-medium text-gray-700"
-                        >
-                          Account Number
-                        </Label>
-                        <Input
-                          readOnly
-                          type="text"
-                          id="account-number"
-                          placeholder="Enter Account Number"
-                          className="bg-white/70 border-gray-200"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="ifsc-code"
-                          className="text-sm font-medium text-gray-700"
-                        >
-                          IFSC Code
-                        </Label>
-                        <Input
-                          readOnly
-                          type="text"
-                          id="ifsc-code"
-                          placeholder="IFSC Code"
-                          className="bg-white/70 border-gray-200"
-                        />
-                      </div>
-                    </div>
-
-                    <Label className="flex items-start gap-3 rounded-lg border-2 border-blue-200 p-4 bg-blue-50/50 hover:bg-blue-50 transition-colors cursor-pointer">
-                      <Checkbox
-                        id="bank-acknowledgment"
-                        className="data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white mt-0.5"
-                      />
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium text-gray-900">
-                          I Acknowledge
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Above bank details are correct to my knowledge
-                        </p>
-                      </div>
-                    </Label>
-                  </CardContent>
-                </Card>
-              </div>
+              <WSSBankDetails
+                reqNo={reqNo}
+                sectionRefs={sectionRefs}
+                viewedSections={viewedSections}
+                setBankAcknowledged={setBankAcknowledged}
+                setDocumentUploaded={setDocumentUploaded}
+              />
 
               {/* Terms and Conditions */}
               <div
@@ -866,6 +778,7 @@ export default function Dashboard() {
                     <Label className="flex items-start gap-3 rounded-lg border-2 border-blue-200 p-4 bg-blue-50/50 hover:bg-blue-50 transition-colors cursor-pointer">
                       <Checkbox
                         id="terms-agreement"
+                        onCheckedChange={(checked) => setTermsChecked(checked)}
                         className="data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white mt-0.5"
                       />
                       <div className="space-y-1">
@@ -880,17 +793,25 @@ export default function Dashboard() {
 
                     <div className="flex flex-col sm:flex-row gap-3 pt-4">
                       <Button
-                        disabled={!allSectionsViewed}
+                        disabled={
+                          !(
+                            termsChecked &&
+                            bankAcknowledged &&
+                            documentUploaded
+                          )
+                        }
                         className={`
-                          flex-1 h-12 text-base font-medium transition-all duration-200
-                          ${
-                            allSectionsViewed
-                              ? "bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl"
-                              : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                          }
-                        `}
+    flex-1 h-12 text-base font-medium transition-all duration-200
+    ${
+      termsChecked && bankAcknowledged && documentUploaded
+        ? "bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl"
+        : "bg-gray-300 text-gray-500 cursor-not-allowed"
+    }
+  `}
                       >
-                        {allSectionsViewed ? (
+                        {termsChecked &&
+                        bankAcknowledged &&
+                        documentUploaded ? (
                           <div
                             onClick={handleSubmit}
                             className="flex items-center space-x-2"
@@ -901,7 +822,7 @@ export default function Dashboard() {
                         ) : (
                           <div className="flex items-center space-x-2">
                             <Clock className="w-5 h-5" />
-                            <span>Review All Sections First</span>
+                            <span>Complete All Steps First</span>
                           </div>
                         )}
                       </Button>

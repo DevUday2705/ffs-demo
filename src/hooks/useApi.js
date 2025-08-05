@@ -86,3 +86,21 @@ export function useDashboardData(reqNo) {
         staleTime: 10 * 60 * 1000,
     });
 }
+
+
+export function useUploadDocument() {
+    return useMutation({
+        mutationFn: async (uploadData) => {
+            const response = await fetch('/api/upload-document', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(uploadData),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to upload document');
+            }
+            return response.json();
+        },
+    });
+}
