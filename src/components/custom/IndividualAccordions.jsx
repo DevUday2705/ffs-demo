@@ -6,6 +6,7 @@ export default function IndividualAccordions({
   viewedSections,
   sectionRefs,
   dashboardData,
+  docsData,
 }) {
   const handleFileUpload = (accordionIndex, rowIndex) => {
     console.log(`Upload file for accordion ${accordionIndex}, row ${rowIndex}`);
@@ -31,10 +32,12 @@ export default function IndividualAccordions({
           }
           isViewed={viewedSections.has("stock-and-receivable")}
           onFileUpload={handleFileUpload}
+          docsData={docsData}
         />
 
         {/* PIL Liability - 4 columns */}
         <PILLiabilityAccordion
+          docsData={docsData}
           sectionId="pil-liability"
           sectionRef={(el) => (sectionRefs.current["pil-liability"] = el)}
           isViewed={viewedSections.has("pil-liability")}

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlignLeft, Paperclip } from "lucide-react";
+import { AlignLeft, Badge, Paperclip } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -22,20 +22,94 @@ import SiteRebateRejected from "./SiteRebateRejected";
 import SecondarySchemesApproved from "./SecondarySchemesApproved";
 import SecondarySchemesPending from "./SecondarySchemesPending";
 import SecondarySchemesRejected from "./SecondarySchemesRejected";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@radix-ui/react-scroll-area";
 
 export const StockReceivableAccordion = ({
   sectionRef,
   sectionId,
   isViewed,
   onFileUpload,
+  docsData = { value: [] },
 }) => {
   const [modalState, setModalState] = useState({
     open: false,
-    row: null,
-    field: null,
-    content: "",
-    title: "Field Information",
+    docs: [],
+    title: "",
   });
+
+  const getDocsForRow = (rowLabel) => {
+    if (!docsData.value || !Array.isArray(docsData.value)) return [];
+    if (
+      rowLabel ===
+      "Debit note reversals related to gift related Schemes due to non-submission of Acknowledgements"
+    ) {
+      return docsData.value.filter(
+        (doc) => doc.Doc_Type?.toUpperCase() === "DN1"
+      );
+    }
+    if (rowLabel === "Barcode token handling charges") {
+      return docsData.value.filter(
+        (doc) => doc.Doc_Type?.toUpperCase() === "BarCode"
+      );
+    }
+    if (rowLabel === "Primary schemes/TD/CD") {
+      return docsData.value.filter(
+        (doc) => doc.Doc_Type?.toUpperCase() === "PRIMARY_TDCD"
+      );
+    }
+    if (rowLabel === "Last claim received post NCC ref no. & date") {
+      return docsData.value.filter(
+        (doc) => doc.Doc_Type?.toUpperCase() === "LCR"
+      );
+    }
+    if (rowLabel === "Claims for Stock loss amounts (as per defined policy)") {
+      return docsData.value.filter(
+        (doc) => doc.Doc_Type?.toUpperCase() === "STOCK_LOSS"
+      );
+    }
+    if (rowLabel === "Claims for WSS Incentive") {
+      return docsData.value.filter(
+        (doc) => doc.Doc_Type?.toUpperCase() === "WSS_INCENTIVE"
+      );
+    }
+    return [];
+  };
+  const [attachmentModal, setAttachmentModal] = useState({
+    open: false,
+    docs: [],
+    title: "",
+  });
+
+  const rowDocTypeMap = {
+    "Debit note reversals related to gift related Schemes due to non-submission of Acknowledgements":
+      "DN1",
+    "Barcode token handling charges": "BarCode",
+    "Primary schemes/TD/CD": "PRIMARY_TDCD",
+    "Last claim received post NCC ref no. & date": "LCR",
+    "Claims for Stock loss amounts (as per defined policy)": "STOCK_LOSS",
+    "Claims for WSS Incentive": "WSS_INCENTIVE",
+  };
+  const handleAttachmentClick = (rowLabel) => {
+    const docs = getDocsForRow(rowLabel);
+    setAttachmentModal({
+      open: true,
+      docs,
+      title: `Attachments - ${rowLabel}`,
+    });
+  };
+
+  // Close dialog
+  const handleCloseDialog = () => {
+    setAttachmentModal((prev) => ({ ...prev, open: false }));
+  };
 
   const getInfoComponent = (rowLabel, columnLabel) => {
     switch (`${rowLabel}__${columnLabel}`) {
@@ -131,7 +205,6 @@ export const StockReceivableAccordion = ({
         remarks: "NA",
         field5: "NA",
         field6: "NA",
-        hasAttachment: true,
       },
       {
         label: "Last claim received post NCC ref no. & date",
@@ -141,7 +214,6 @@ export const StockReceivableAccordion = ({
         remarks: "NA",
         field5: "NA",
         field6: "NA",
-        hasAttachment: true,
       },
       {
         label:
@@ -152,7 +224,6 @@ export const StockReceivableAccordion = ({
         remarks: "NA",
         field5: "NA",
         field6: "NA",
-        hasAttachment: true,
       },
       {
         label: "Claims for Stock loss amounts (as per defined policy)",
@@ -162,7 +233,6 @@ export const StockReceivableAccordion = ({
         remarks: "NA",
         field5: "NA",
         field6: "NA",
-        hasAttachment: true,
       },
       {
         label: "Claims for WSS Incentive",
@@ -172,7 +242,6 @@ export const StockReceivableAccordion = ({
         remarks: "NA",
         field5: "NA",
         field6: "NA",
-        hasAttachment: true,
       },
       {
         label:
@@ -183,7 +252,6 @@ export const StockReceivableAccordion = ({
         remarks: "2520",
         field5: "0",
         field6: "NA",
-        hasAttachment: true,
       },
       {
         label: "Barcode Token claims",
@@ -193,7 +261,6 @@ export const StockReceivableAccordion = ({
         remarks: "0",
         field5: "0",
         field6: "NA",
-        hasAttachment: false,
       },
       {
         label: "Barcode token handling charges",
@@ -203,7 +270,6 @@ export const StockReceivableAccordion = ({
         remarks: "NA",
         field5: "NA",
         field6: "NA",
-        hasAttachment: false,
       },
       {
         label: "Primary schemes/TD/CD",
@@ -213,7 +279,6 @@ export const StockReceivableAccordion = ({
         remarks: "NA",
         field5: "NA",
         field6: "NA",
-        hasAttachment: false,
       },
       {
         label:
@@ -224,7 +289,6 @@ export const StockReceivableAccordion = ({
         remarks: "NA",
         field5: "NA",
         field6: "NA",
-        hasAttachment: false,
       },
       {
         label: "Total Claim Values",
@@ -234,7 +298,6 @@ export const StockReceivableAccordion = ({
         remarks: "16284806.07",
         field5: "0",
         field6: "NA",
-        hasAttachment: false,
       },
     ],
   };
@@ -434,14 +497,16 @@ export const StockReceivableAccordion = ({
                             disabled
                             className="bg-white/70 border-gray-200 text-sm flex-1"
                           />
-                          {row.hasAttachment && (
+                          {getDocsForRow(row.label).length > 0 && (
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => onFileUpload(1, index)}
+                              onClick={() => handleAttachmentClick(row.label)}
                               className="flex items-center justify-center hover:bg-blue-50 hover:border-blue-300 flex-shrink-0 w-8 h-8"
+                              title="View Attachments"
                             >
                               <Paperclip className="w-4 h-4" />
+                              <span className="sr-only">View Attachments</span>
                             </Button>
                           )}
                         </div>
@@ -622,6 +687,64 @@ export const StockReceivableAccordion = ({
         content={modalState.content}
         title={modalState.title}
       />
+      <Dialog open={attachmentModal.open} onOpenChange={handleCloseDialog}>
+        <DialogContent className="max-w-lg w-full">
+          <DialogHeader>
+            <DialogTitle>{attachmentModal.title}</DialogTitle>
+            <DialogDescription>
+              {attachmentModal.docs.length === 0
+                ? "No attachments found."
+                : "Below are the documents attached for this section."}
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-72">
+            {attachmentModal.docs.length > 0 ? (
+              <div className="space-y-4">
+                {attachmentModal.docs.map((doc) => (
+                  <div
+                    key={doc.ID}
+                    className="flex items-center justify-between rounded-lg border border-gray-200 p-3 bg-white shadow-sm"
+                  >
+                    <div>
+                      <div className="font-medium text-gray-900 text-sm flex items-center gap-2">
+                        <Paperclip className="w-4 h-4 text-blue-500" />
+                        {doc.fileName}
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          {doc.mediaType}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Uploaded: {new Date(doc.createdAt).toLocaleString()}
+                      </div>
+                    </div>
+                    <a
+                      href={`${
+                        process.env.NEXT_PUBLIC_DOCS_DOWNLOAD_URL || "#"
+                      }/${doc.ID}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-4"
+                    >
+                      <Button size="sm" variant="secondary">
+                        View
+                      </Button>
+                    </a>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                No documents available.
+              </div>
+            )}
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseDialog}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

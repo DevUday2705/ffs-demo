@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import IndividualAccordions from "@/components/custom/IndividualAccordions";
-import { useDashboardData } from "@/hooks/useApi";
+import { useDashboardData, useGetDocs } from "@/hooks/useApi";
 import { storage } from "@/shared/utils";
 import WSSBankDetails from "@/components/custom/WSSBankDetails";
 
@@ -250,6 +250,27 @@ export default function Dashboard() {
   const [documentUploaded, setDocumentUploaded] = useState(false);
   const sectionRefs = useRef({});
 
+  const {
+    mutate: getDocs,
+    data: docsData,
+    isLoading: docsLoading,
+    error: docsError,
+  } = useGetDocs();
+
+  // Fetch docs when reqNo is available
+  useEffect(() => {
+    if (reqNo) {
+      getDocs(reqNo);
+    }
+  }, [reqNo, getDocs]);
+
+  // Console log the data when it arrives
+  useEffect(() => {
+    if (docsData) {
+      console.log("Docs data:", docsData);
+    }
+  }, [docsData]);
+
   useEffect(() => {
     const userData = storage.getUserData();
     if (userData && userData.ReqNo) {
@@ -318,7 +339,7 @@ export default function Dashboard() {
 
   const handleLogout = () => {};
 
-  if (isLoading) {
+  if (isLoading || docsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -546,13 +567,12 @@ export default function Dashboard() {
 
             {/* Form Sections */}
             <div className="space-y-8">
-              {/* Dynamic Forms */}
-
               <IndividualAccordions
                 viewedSections={viewedSections}
                 setViewedSections={setViewedSections}
                 sectionRefs={sectionRefs}
                 dashboardData={dashboardData}
+                docsData={docsData}
               />
 
               <div
