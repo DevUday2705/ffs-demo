@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlignLeft, Badge, Paperclip } from "lucide-react";
+import { AlignLeft, Badge, List, Paperclip, Search } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -430,7 +430,7 @@ export const StockReceivableAccordion = ({
                                 )
                               }
                             >
-                              <AlignLeft className="w-4 h-4 text-blue-500" />
+                              <List className="w-4 h-4 text-blue-500" />
                             </Button>
                           )}
                         </div>
@@ -457,7 +457,7 @@ export const StockReceivableAccordion = ({
                                 )
                               }
                             >
-                              <AlignLeft className="w-4 h-4 text-blue-500" />
+                              <List className="w-4 h-4 text-blue-500" />
                             </Button>
                           )}
                         </div>
@@ -484,7 +484,7 @@ export const StockReceivableAccordion = ({
                                 )
                               }
                             >
-                              <AlignLeft className="w-4 h-4 text-blue-500" />
+                              <List className="w-4 h-4 text-blue-500" />
                             </Button>
                           )}
                         </div>
@@ -580,7 +580,7 @@ export const StockReceivableAccordion = ({
                                   )
                                 }
                               >
-                                <AlignLeft className="w-4 h-4 text-blue-500" />
+                                <List className="w-4 h-4 text-blue-500" />
                               </Button>
                             )}
                           </div>
@@ -610,7 +610,7 @@ export const StockReceivableAccordion = ({
                                   )
                                 }
                               >
-                                <AlignLeft className="w-4 h-4 text-blue-500" />
+                                <List className="w-4 h-4 text-blue-500" />
                               </Button>
                             )}
                           </div>
@@ -643,7 +643,7 @@ export const StockReceivableAccordion = ({
                                   )
                                 }
                               >
-                                <AlignLeft className="w-4 h-4 text-blue-500" />
+                                <List className="w-4 h-4 text-blue-500" />
                               </Button>
                             )}
                           </div>
@@ -707,7 +707,7 @@ export const StockReceivableAccordion = ({
                   >
                     <div>
                       <div className="font-medium text-gray-900 text-sm flex items-center gap-2">
-                        <Paperclip className="w-4 h-4 text-blue-500" />
+                        <Paperclip className="w-4 h-4 text-gray-500" />
                         {doc.fileName}
                         <Badge variant="outline" className="ml-2 text-xs">
                           {doc.mediaType}

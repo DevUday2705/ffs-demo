@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useMemo, useCallback } from "react";
+import * as XLSX from "xlsx";
 import {
   Table,
   TableBody,
@@ -78,7 +79,7 @@ const TableControls = React.memo(
           onClick={() => exportToCSV(processedData, cols, filename)}
         >
           <Download className="w-4 h-4 mr-2" />
-          Export CSV
+          Export Excel
         </Button>
         <Badge variant="outline" className="text-xs">
           {processedData.length} records
@@ -220,19 +221,21 @@ const DataTable = ({
   // Export to CSV
   const exportToCSV = useCallback(
     (exportData, exportColumns, filename = "data") => {
-      const headers = exportColumns.map((col) => col.label).join(",");
-      const rows = exportData
-        .map((row) =>
-          exportColumns.map((col) => `"${row[col.key] || ""}"`).join(",")
-        )
-        .join("\n");
-      const csv = `${headers}\n${rows}`;
-      const blob = new Blob([csv], { type: "text/csv" });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${filename}.csv`;
-      a.click();
+      // Prepare data for worksheet
+      const worksheetData = [
+        exportColumns.map((col) => col.label),
+        ...exportData.map((row) =>
+          exportColumns.map((col) => row[col.key] || "")
+        ),
+      ];
+
+      // Create worksheet and workbook
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+      // Write file
+      XLSX.writeFile(workbook, `${filename}.xlsx`);
     },
     []
   );

@@ -302,7 +302,7 @@ export const PILLiabilityAccordion = ({
                   >
                     <div>
                       <div className="font-medium text-gray-900 text-sm flex items-center gap-2">
-                        <Paperclip className="w-4 h-4 text-blue-500" />
+                        <Paperclip className="w-4 h-4 text-gray-500" />
                         {doc.fileName}
                         <Badge variant="outline" className="ml-2 text-xs">
                           {doc.mediaType}
