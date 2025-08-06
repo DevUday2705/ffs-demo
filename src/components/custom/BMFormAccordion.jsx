@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Paperclip, AlignLeft } from "lucide-react";
+import { Paperclip, AlignLeft, Search, List } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -255,7 +255,7 @@ export const BMForm1Accordion = ({
                                 )
                               }
                             >
-                              <AlignLeft className="w-4 h-4 text-blue-500" />
+                              <List className="w-4 h-4 text-blue-500" />
                             </Button>
                           )}
                         </div>
@@ -284,7 +284,7 @@ export const BMForm1Accordion = ({
                                 )
                               }
                             >
-                              <AlignLeft className="w-4 h-4 text-blue-500" />
+                              <List className="w-4 h-4 text-blue-500" />
                             </Button>
                           )}
                         </div>
@@ -313,7 +313,7 @@ export const BMForm1Accordion = ({
                                 )
                               }
                             >
-                              <AlignLeft className="w-4 h-4 text-blue-500" />
+                              <List className="w-4 h-4 text-blue-500" />
                             </Button>
                           )}
                         </div>
@@ -342,7 +342,7 @@ export const BMForm1Accordion = ({
                                 )
                               }
                             >
-                              <AlignLeft className="w-4 h-4 text-blue-500" />
+                              <List className="w-4 h-4 text-blue-500" />
                             </Button>
                           )}
                           {row.hasAttachment && (

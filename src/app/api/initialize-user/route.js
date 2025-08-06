@@ -1,9 +1,10 @@
-import { initializeUser } from '@/app/utils/api';
+import { getAccessToken, initializeUser } from '@/app/utils/api';
 
 import { NextResponse } from 'next/server';
 
 
 export async function POST(request) {
+
     const { reqno } = await request.json();
     const result = await initializeUser(reqno);
 

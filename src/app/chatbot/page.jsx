@@ -210,7 +210,7 @@ const ResumeSearchChatBot = () => {
 
       <div className="space-y-3">
         <div className="flex items-start space-x-2">
-          <Code className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+          <Code className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
           <div>
             <p className="text-sm text-gray-600 mb-1">Skills</p>
             <div className="flex flex-wrap gap-1">
@@ -387,7 +387,7 @@ const ResumeSearchChatBot = () => {
               <div className="flex-1">
                 <div className="inline-block px-6 py-4 bg-white border border-gray-200 rounded-2xl shadow-sm">
                   <div className="flex items-center space-x-3">
-                    <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                    <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
                     <div>
                       <p className="text-sm font-medium text-gray-900">
                         {searchProgress.stage || "Processing your request..."}

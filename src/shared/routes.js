@@ -7,5 +7,6 @@ export const API_CONFIG = {
     validateOTP: 'https://pidilite-industries-ltd-dev-qas-lrnolmj4-dev-ffspidilite-srv.cfapps.us10.hana.ondemand.com/odata/v4/Offboadring/validateOTP',
     clientId: 'sb-FFSPidilite-DEV!t372327',
     clientSecret: 'gKN/dpVElZik3ATifnKVHE+4cXU=',
-    uploadDoc: 'https://pidilite-industries-ltd-dev-qas-lrnolmj4-dev-ffspidilite-srv.cfapps.us10.hana.ondemand.com/odata/v4/Offboadring/UploadDocSrv'
+    uploadDoc: 'https://pidilite-industries-ltd-dev-qas-lrnolmj4-dev-ffspidilite-srv.cfapps.us10.hana.ondemand.com/odata/v4/Offboadring/UploadDocSrv',
+    getDocs: 'https://pidilite-industries-ltd-dev-qas-lrnolmj4-dev-ffspidilite-srv.cfapps.us10.hana.ondemand.com/odata/v4/Offboadring/UploadDocSrv?$filter=ReqNo_ReqNo eq '
 };

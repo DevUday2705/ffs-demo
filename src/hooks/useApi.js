@@ -104,3 +104,20 @@ export function useUploadDocument() {
         },
     });
 }
+
+export function useGetDocs() {
+    return useMutation({
+        mutationFn: async (reqNo) => {
+            const response = await fetch('/api/get-docs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reqNo }),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to fetch documents');
+            }
+            return response.json();
+        },
+    });
+}
