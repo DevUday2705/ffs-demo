@@ -150,7 +150,7 @@ const ResumeCard = ({
           </Button>
 
           {/* Update Resume */}
-          <Button
+          {/* <Button
             onClick={() => onUpdateResume(resume.id, resume.metadata.name)}
             disabled={actionLoading[`update-${resume.id}`]}
             className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 flex items-center justify-center space-x-2"
@@ -161,7 +161,7 @@ const ResumeCard = ({
               <RefreshCw className="w-4 h-4" />
             )}
             <span>Update</span>
-          </Button>
+          </Button> */}
 
           {/* Send Email */}
           <Button
