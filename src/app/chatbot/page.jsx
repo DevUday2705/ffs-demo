@@ -1,23 +1,13 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
-import {
-  Send,
-  Bot,
-  User,
-  Loader2,
-  Download,
-  ExternalLink,
-  GraduationCap,
-  Code,
-  RefreshCw,
-  Mail,
-  Calendar,
-  Star,
-  MapPin,
-  Phone,
-  Briefcase,
-} from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Send, Bot, User, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
+import MessageComponent from "@/components/custom/MessageComponent";
+import LoadingComponent from "@/components/custom/LoadingComponent";
+import EmailModal from "@/components/custom/EmailModal";
+import MeetingModal from "@/components/custom/MeetingModal";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 const ResumeSearchChatBot = () => {
   const [messages, setMessages] = useState([
@@ -34,17 +24,52 @@ const ResumeSearchChatBot = () => {
   const [searchProgress, setSearchProgress] = useState({ stage: "", count: 0 });
   const [completedAnimations, setCompletedAnimations] = useState(new Set([1]));
   const [actionLoading, setActionLoading] = useState({});
+
+  // Modal states
+  const [emailModal, setEmailModal] = useState({
+    isOpen: false,
+    candidate: null,
+  });
+  const [meetingModal, setMeetingModal] = useState({
+    isOpen: false,
+    candidate: null,
+  });
+
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const inputValue = useRef("");
+  const messagesContainerRef = useRef(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  // Improved scroll behavior
+  const scrollToBottom = useCallback((behavior = "smooth") => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({
+        behavior,
+        block: "end",
+        inline: "nearest",
+      });
+    }
+  }, []);
 
+  // Auto-scroll when new messages are added, but only if user is near bottom
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (messagesContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } =
+        messagesContainerRef.current;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+
+      if (isNearBottom) {
+        setTimeout(() => scrollToBottom(), 100);
+      }
+    }
+  }, [messages, scrollToBottom]);
+
+  // Scroll to bottom when typing completes
+  useEffect(() => {
+    if (isTypingComplete) {
+      setTimeout(() => scrollToBottom(), 200);
+    }
+  }, [isTypingComplete, scrollToBottom]);
 
   // Mock resume data - replace with actual API response
   const fetchResumesFromAPI = async (query) => {
@@ -318,286 +343,57 @@ const ResumeSearchChatBot = () => {
     }
   };
 
-  const handleSendEmail = async (candidateId, candidateName, email) => {
-    setActionLoading((prev) => ({ ...prev, [`email-${candidateId}`]: true }));
+  const handleSendEmail = (candidateId, candidateName, email) => {
+    const candidate = messages
+      .flatMap((msg) => msg.resumes || [])
+      .find((resume) => resume.id === candidateId);
 
-    try {
-      const response = await fetch("/api/send-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ candidateId, email }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to send email");
-      }
-
-      const successMessage = {
-        id: Date.now(),
-        type: "bot",
-        content: `📧 Email sent successfully to ${candidateName} at ${email}`,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, successMessage]);
-    } catch (error) {
-      console.error("Error sending email:", error);
-      const errorMessage = {
-        id: Date.now(),
-        type: "bot",
-        content: `❌ Failed to send email to ${candidateName}. Please try again later.`,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setActionLoading((prev) => ({
-        ...prev,
-        [`email-${candidateId}`]: false,
-      }));
+    if (candidate) {
+      setEmailModal({ isOpen: true, candidate });
     }
   };
 
-  const handleScheduleMeeting = async (candidateId, candidateName) => {
-    setActionLoading((prev) => ({ ...prev, [`meeting-${candidateId}`]: true }));
+  const handleScheduleMeeting = (candidateId, candidateName) => {
+    const candidate = messages
+      .flatMap((msg) => msg.resumes || [])
+      .find((resume) => resume.id === candidateId);
 
-    try {
-      const response = await fetch("/api/schedule-meeting", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ candidateId }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to schedule meeting");
-      }
-
-      const data = await response.json();
-
-      const successMessage = {
-        id: Date.now(),
-        type: "bot",
-        content: `📅 Meeting invitation sent to ${candidateName}. They will receive a calendar invite shortly.`,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, successMessage]);
-    } catch (error) {
-      console.error("Error scheduling meeting:", error);
-      const errorMessage = {
-        id: Date.now(),
-        type: "bot",
-        content: `❌ Failed to schedule meeting with ${candidateName}. Please try again later.`,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setActionLoading((prev) => ({
-        ...prev,
-        [`meeting-${candidateId}`]: false,
-      }));
+    if (candidate) {
+      setMeetingModal({ isOpen: true, candidate });
     }
   };
 
-  const TypewriterText = ({ text, messageId }) => {
-    const [displayText, setDisplayText] = useState("");
-    const [currentIndex, setCurrentIndex] = useState(0);
+  // Simulation handlers for modals
+  const handleEmailSend = async (candidateId, candidateName, emailData) => {
+    // Simulate email sending
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    const shouldAnimate = !completedAnimations.has(messageId);
-
-    useEffect(() => {
-      if (shouldAnimate) {
-        setDisplayText("");
-        setCurrentIndex(0);
-      } else {
-        setDisplayText(text);
-        setCurrentIndex(text.length);
-      }
-    }, [messageId, shouldAnimate, text]);
-
-    useEffect(() => {
-      if (shouldAnimate && currentIndex < text.length) {
-        const timeout = setTimeout(() => {
-          setDisplayText((prev) => prev + text[currentIndex]);
-          setCurrentIndex((prev) => prev + 1);
-        }, 30);
-        return () => clearTimeout(timeout);
-      } else if (shouldAnimate && currentIndex === text.length) {
-        setCompletedAnimations((prev) => new Set([...prev, messageId]));
-        setIsTypingComplete(true);
-      }
-    }, [currentIndex, text, shouldAnimate, messageId]);
-
-    return (
-      <span>
-        {displayText}
-        {shouldAnimate && currentIndex < text.length && (
-          <span className="inline-block w-0.5 h-4 bg-blue-500 ml-1 animate-pulse" />
-        )}
-      </span>
-    );
+    const successMessage = {
+      id: Date.now(),
+      type: "bot",
+      content: `📧 Email sent successfully to ${candidateName} at ${emailData.to}! The candidate will receive your message shortly.`,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, successMessage]);
   };
 
-  const ResumeCard = ({ resume }) => (
-    <div className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all duration-300 hover:border-blue-200">
-      {/* Header with name and match score */}
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex-1">
-          <div className="flex items-center space-x-3 mb-2">
-            <h3 className="font-bold text-gray-900 text-xl">
-              {resume.metadata.name}
-            </h3>
-            <div className="flex items-center space-x-1">
-              <Star className="w-4 h-4 text-yellow-500 fill-current" />
-              <span className="text-sm font-medium text-gray-700">
-                {Math.floor(resume.metadata.relevance_score * 100)}% match
-              </span>
-            </div>
-          </div>
+  const handleMeetingSchedule = async (
+    candidateId,
+    candidateName,
+    meetingData
+  ) => {
+    // Simulate meeting scheduling
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-          {/* Contact info */}
-          <div className="flex items-center space-x-4 text-sm text-gray-600 mb-3">
-            {resume.metadata.email && (
-              <div className="flex items-center space-x-1">
-                <Mail className="w-4 h-4" />
-                <span>{resume.metadata.email}</span>
-              </div>
-            )}
-            {resume.metadata.phone && (
-              <div className="flex items-center space-x-1">
-                <Phone className="w-4 h-4" />
-                <span>{resume.metadata.phone}</span>
-              </div>
-            )}
-            {resume.metadata.location && (
-              <div className="flex items-center space-x-1">
-                <MapPin className="w-4 h-4" />
-                <span>{resume.metadata.location}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Experience and Education */}
-      <div className="grid md:grid-cols-2 gap-4 mb-4">
-        <div className="flex items-start space-x-3">
-          <div className="p-2 bg-blue-50 rounded-lg">
-            <Briefcase className="w-4 h-4 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900 mb-1">Experience</p>
-            <p className="text-sm text-gray-600">{resume.experience}</p>
-          </div>
-        </div>
-
-        <div className="flex items-start space-x-3">
-          <div className="p-2 bg-purple-50 rounded-lg">
-            <GraduationCap className="w-4 h-4 text-purple-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900 mb-1">Education</p>
-            <p className="text-sm text-gray-600">{resume.metadata.education}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Skills */}
-      <div className="mb-6">
-        <div className="flex items-center space-x-2 mb-3">
-          <div className="p-2 bg-green-50 rounded-lg">
-            <Code className="w-4 h-4 text-green-600" />
-          </div>
-          <p className="text-sm font-medium text-gray-900">Skills</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {resume.metadata.skills.map((skill, index) => (
-            <span
-              key={index}
-              className="bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 px-3 py-1 rounded-full text-xs font-medium border border-blue-200"
-            >
-              {skill}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        {/* Download Resume */}
-        <button className="col-span-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center space-x-2 shadow-sm hover:shadow-md">
-          <Download className="w-4 h-4" />
-          <a
-            target="_blank"
-            href={resume.metadata.download_url}
-            rel="noreferrer"
-          >
-            <span>Download</span>
-          </a>
-        </button>
-
-        {/* View Resume */}
-        <button
-          onClick={() => window.open(resume.resumeUrl, "_blank")}
-          className="col-span-1 bg-gray-50 hover:bg-gray-100 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center space-x-2 border border-gray-200 hover:border-gray-300"
-        >
-          <ExternalLink className="w-4 h-4" />
-          <span>View</span>
-        </button>
-
-        {/* Update Resume */}
-        <button
-          onClick={() => handleUpdateResume(resume.id, resume.metadata.name)}
-          disabled={actionLoading[`update-${resume.id}`]}
-          className="col-span-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center space-x-2 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {actionLoading[`update-${resume.id}`] ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <RefreshCw className="w-4 h-4" />
-          )}
-          <span>Update</span>
-        </button>
-
-        {/* Send Email */}
-        <button
-          onClick={() =>
-            handleSendEmail(
-              resume.id,
-              resume.metadata.name,
-              resume.metadata.email
-            )
-          }
-          disabled={
-            actionLoading[`email-${resume.id}`] || !resume.metadata.email
-          }
-          className="col-span-1 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center space-x-2 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {actionLoading[`email-${resume.id}`] ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Mail className="w-4 h-4" />
-          )}
-          <span>Email</span>
-        </button>
-
-        {/* Schedule Meeting */}
-        <button
-          onClick={() => handleScheduleMeeting(resume.id, resume.metadata.name)}
-          disabled={actionLoading[`meeting-${resume.id}`]}
-          className="col-span-1 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center space-x-2 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {actionLoading[`meeting-${resume.id}`] ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Calendar className="w-4 h-4" />
-          )}
-          <span>Schedule</span>
-        </button>
-      </div>
-    </div>
-  );
+    const meetingDate = new Date(meetingData.date).toLocaleDateString();
+    const successMessage = {
+      id: Date.now(),
+      type: "bot",
+      content: `📅 Meeting scheduled successfully with ${candidateName} on ${meetingDate} at ${meetingData.time} (${meetingData.duration} minutes). Calendar invite has been sent!`,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, successMessage]);
+  };
 
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-blue-50">
@@ -625,151 +421,29 @@ const ResumeSearchChatBot = () => {
       </div>
 
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto px-4 py-6 space-y-6"
+      >
         <div className="max-w-5xl mx-auto space-y-6">
           {messages.map((message, index) => (
-            <div
+            <MessageComponent
               key={message.id}
-              className={`flex items-start space-x-4 ${
-                message.type === "user"
-                  ? "flex-row-reverse space-x-reverse"
-                  : ""
-              } animate-in slide-in-from-bottom-4 duration-300`}
-              style={{ animationDelay: `${index * 100}ms` }}
-            >
-              {/* Enhanced Avatar */}
-              <div
-                className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${
-                  message.type === "user"
-                    ? "bg-gradient-to-r from-green-500 to-emerald-600"
-                    : "bg-gradient-to-r from-blue-500 to-purple-600"
-                }`}
-              >
-                {message.type === "user" ? (
-                  <User className="w-5 h-5 text-white" />
-                ) : (
-                  <Bot className="w-5 h-5 text-white" />
-                )}
-              </div>
-
-              {/* Message Content */}
-              <div
-                className={`flex-1 ${
-                  message.type === "user" ? "text-right" : "text-left"
-                }`}
-              >
-                {message.type === "user" ? (
-                  <div className="inline-block px-5 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl shadow-lg max-w-xs sm:max-w-md md:max-w-lg">
-                    <p className="text-sm leading-relaxed">{message.content}</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="inline-block px-5 py-4 bg-white border border-gray-200 rounded-2xl shadow-sm max-w-full">
-                      {message.shouldType ? (
-                        <TypewriterText
-                          text={message.content}
-                          messageId={message.id}
-                        />
-                      ) : (
-                        <p className="text-sm leading-relaxed text-gray-800">
-                          {message.content}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Resume Results */}
-                    {message.resumes &&
-                      message.resumes.length > 0 &&
-                      isTypingComplete && (
-                        <motion.div
-                          className="grid gap-6 mt-6"
-                          initial="hidden"
-                          animate="visible"
-                          variants={{
-                            visible: {
-                              transition: {
-                                staggerChildren: 0.1,
-                              },
-                            },
-                          }}
-                        >
-                          {message.resumes.map((resume, index) => (
-                            <motion.div
-                              key={resume.id}
-                              variants={{
-                                hidden: {
-                                  opacity: 0,
-                                  y: 20,
-                                  scale: 0.95,
-                                },
-                                visible: {
-                                  opacity: 1,
-                                  y: 0,
-                                  scale: 1,
-                                  transition: {
-                                    duration: 0.4,
-                                    ease: "easeOut",
-                                  },
-                                },
-                              }}
-                            >
-                              <ResumeCard resume={resume} />
-                            </motion.div>
-                          ))}
-                        </motion.div>
-                      )}
-                  </div>
-                )}
-                <p className="text-xs text-gray-500 mt-2 px-1">
-                  {message.timestamp.toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </p>
-              </div>
-            </div>
+              message={message}
+              index={index}
+              completedAnimations={completedAnimations}
+              setCompletedAnimations={setCompletedAnimations}
+              isTypingComplete={isTypingComplete}
+              setIsTypingComplete={setIsTypingComplete}
+              actionLoading={actionLoading}
+              onUpdateResume={handleUpdateResume}
+              onSendEmail={handleSendEmail}
+              onScheduleMeeting={handleScheduleMeeting}
+            />
           ))}
 
           {/* Enhanced Loading indicator */}
-          {isLoading && (
-            <div className="flex items-start space-x-4 animate-in slide-in-from-bottom-4 duration-300">
-              <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Bot className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex-1">
-                <div className="inline-block px-6 py-5 bg-white border border-gray-200 rounded-2xl shadow-sm">
-                  <div className="flex items-center space-x-4">
-                    <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">
-                        {searchProgress.stage || "Processing your request..."}
-                      </p>
-                      {searchProgress.count > 0 && (
-                        <p className="text-xs text-gray-600 mt-1">
-                          Processed {searchProgress.count.toLocaleString()}{" "}
-                          resumes
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex space-x-1 mt-4">
-                    <div
-                      className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
-                      style={{ animationDelay: "0ms" }}
-                    ></div>
-                    <div
-                      className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
-                      style={{ animationDelay: "150ms" }}
-                    ></div>
-                    <div
-                      className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
-                      style={{ animationDelay: "300ms" }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {isLoading && <LoadingComponent searchProgress={searchProgress} />}
           <div ref={messagesEndRef} />
         </div>
       </div>
@@ -780,7 +454,7 @@ const ResumeSearchChatBot = () => {
           <div className="relative">
             <div className="flex items-end space-x-4">
               <div className="flex-1 relative">
-                <textarea
+                <Textarea
                   ref={inputRef}
                   onChange={(e) => {
                     inputValue.current = e.target.value;
@@ -792,31 +466,27 @@ const ResumeSearchChatBot = () => {
                     }
                   }}
                   placeholder="e.g., 'I want 10 React developers' or 'Find me 5 Python engineers with machine learning experience'"
-                  className="w-full px-5 py-4 pr-14 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm transition-all duration-200 shadow-sm"
-                  rows={1}
-                  style={{
-                    minHeight: "56px",
-                    maxHeight: "120px",
-                  }}
+                  className="w-full pr-14 resize-none min-h-[56px] max-h-[120px]"
+                  disabled={isLoading}
                   onInput={(e) => {
                     inputValue.current = e.target.value;
                     e.target.style.height = "auto";
                     e.target.style.height =
                       Math.min(e.target.scrollHeight, 120) + "px";
                   }}
-                  disabled={isLoading}
                 />
-                <button
+                <Button
                   onClick={handleSubmit}
                   disabled={isLoading}
-                  className="absolute right-3 bottom-4 p-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg"
+                  size="sm"
+                  className="absolute right-3 bottom-3 h-10 w-10 p-0 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
                 >
                   {isLoading ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <Send className="w-5 h-5" />
                   )}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -825,6 +495,21 @@ const ResumeSearchChatBot = () => {
           </p>
         </div>
       </div>
+
+      {/* Modals */}
+      <EmailModal
+        isOpen={emailModal.isOpen}
+        onClose={() => setEmailModal({ isOpen: false, candidate: null })}
+        candidate={emailModal.candidate}
+        onSend={handleEmailSend}
+      />
+
+      <MeetingModal
+        isOpen={meetingModal.isOpen}
+        onClose={() => setMeetingModal({ isOpen: false, candidate: null })}
+        candidate={meetingModal.candidate}
+        onSchedule={handleMeetingSchedule}
+      />
     </div>
   );
 };
