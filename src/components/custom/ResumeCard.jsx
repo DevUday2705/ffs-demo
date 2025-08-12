@@ -36,7 +36,10 @@ const ResumeCard = ({
               <h3 className="font-bold text-gray-900 text-xl">
                 {resume.metadata.name}
               </h3>
-              <Badge variant="secondary" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+              <Badge
+                variant="secondary"
+                className="bg-yellow-50 text-yellow-700 border-yellow-200"
+              >
                 <Star className="w-3 h-3 mr-1 fill-current" />
                 {Math.floor(resume.metadata.relevance_score * 100)}% match
               </Badge>
@@ -73,8 +76,12 @@ const ResumeCard = ({
               <Briefcase className="w-4 h-4 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900 mb-1">Experience</p>
-              <p className="text-sm text-gray-600">{resume.experience}</p>
+              <p className="text-sm font-medium text-gray-900 mb-1">
+                Experience
+              </p>
+              <p className="text-sm text-gray-600">
+                {resume.experience} Years{" "}
+              </p>
             </div>
           </div>
 
@@ -83,8 +90,12 @@ const ResumeCard = ({
               <GraduationCap className="w-4 h-4 text-purple-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900 mb-1">Education</p>
-              <p className="text-sm text-gray-600">{resume.metadata.education}</p>
+              <p className="text-sm font-medium text-gray-900 mb-1">
+                Education
+              </p>
+              <p className="text-sm text-gray-600">
+                {resume.metadata.education}
+              </p>
             </div>
           </div>
         </div>
@@ -155,7 +166,11 @@ const ResumeCard = ({
           {/* Send Email */}
           <Button
             onClick={() =>
-              onSendEmail(resume.id, resume.metadata.name, resume.metadata.email)
+              onSendEmail(
+                resume.id,
+                resume.metadata.name,
+                resume.metadata.email
+              )
             }
             disabled={
               actionLoading[`email-${resume.id}`] || !resume.metadata.email
