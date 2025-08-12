@@ -79,9 +79,7 @@ const ResumeCard = ({
               <p className="text-sm font-medium text-gray-900 mb-1">
                 Experience
               </p>
-              <p className="text-sm text-gray-600">
-                {resume.experience} Years{" "}
-              </p>
+              <p className="text-sm text-gray-600">{resume.experience}</p>
             </div>
           </div>
 
