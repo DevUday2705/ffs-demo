@@ -1,15 +1,22 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Bot, User, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Send, Bot, User, Loader2, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
 import MessageComponent from "@/components/custom/MessageComponent";
 import LoadingComponent from "@/components/custom/LoadingComponent";
 import EmailModal from "@/components/custom/EmailModal";
 import MeetingModal from "@/components/custom/MeetingModal";
+import BulkActionsModal from "@/components/custom/BulkActionsModal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
 const ResumeSearchChatBot = () => {
+  const router = useRouter();
+  
+  // All hooks must be declared at the top level, before any conditional returns
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -34,6 +41,10 @@ const ResumeSearchChatBot = () => {
     isOpen: false,
     candidate: null,
   });
+  const [bulkModal, setBulkModal] = useState({
+    isOpen: false,
+    candidates: [],
+  });
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -50,6 +61,24 @@ const ResumeSearchChatBot = () => {
       });
     }
   }, []);
+
+  // Check authentication on component mount
+  useEffect(() => {
+    const checkAuth = () => {
+      const isLoggedIn = localStorage.getItem("isLoggedIn");
+      const userToken = localStorage.getItem("userToken");
+      const isAuthenticated = localStorage.getItem("isAuthenticated");
+
+      if (isLoggedIn || userToken || isAuthenticated) {
+        setIsAuthenticated(true);
+      } else {
+        router.push("/");
+      }
+      setIsCheckingAuth(false);
+    };
+
+    checkAuth();
+  }, [router]);
 
   // Auto-scroll when new messages are added, but only if user is near bottom
   useEffect(() => {
@@ -70,6 +99,34 @@ const ResumeSearchChatBot = () => {
       setTimeout(() => scrollToBottom(), 200);
     }
   }, [isTypingComplete, scrollToBottom]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("isLoggedIn");
+    localStorage.removeItem("userToken");
+    localStorage.removeItem("userData");
+    localStorage.removeItem("isAuthenticated");
+    localStorage.removeItem("userLoginId");
+    router.push("/");
+  };
+
+  // Mock resume data - replace with actual API response
+
+  // Show loading while checking authentication
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Verifying access...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render chatbot if not authenticated
+  if (!isAuthenticated) {
+    return null;
+  }
 
   // Mock resume data - replace with actual API response
   const fetchResumesFromAPI = async (query) => {
@@ -98,10 +155,28 @@ const ResumeSearchChatBot = () => {
       const data = await response.json();
       console.log("API Response data:", data); // Debug log
 
-      // Validate response structure
+      // Check for supervisor response with error message
+      if (data.supervisor_response && data.supervisor_response.message && !data.supervisor_response.pipeline_ran) {
+        // This is an invalid query or out-of-scope request
+        throw new Error(data.supervisor_response.message);
+      }
+
+      // Check if we have a message field at the top level (like "Follow-up or pre-handled case.")
+      if (data.message && data.supervisor_response && !data.supervisor_response.pipeline_ran) {
+        // Check specifically for "Follow-up or pre-handled case." message
+        if (data.message === "Follow-up or pre-handled case.") {
+          throw new Error("This query is outside the scope of this application. Let's discuss about the skill / candidate requirements.");
+        }
+        // For other cases, use the supervisor message or fallback to the main message
+        throw new Error(data.supervisor_response.message || data.message);
+      }
+
+      // Validate response structure for successful cases
       if (
         !data.ranking_pipeline_response ||
-        !data.ranking_pipeline_response.response
+        !data.ranking_pipeline_response.response ||
+        !data.supervisor_response ||
+        !data.supervisor_response.pipeline_ran
       ) {
         console.error("Invalid response structure:", data);
         throw new Error("Invalid response structure from API");
@@ -109,6 +184,15 @@ const ResumeSearchChatBot = () => {
 
       const matches = data.ranking_pipeline_response.response.matches || [];
       console.log("Extracted matches:", matches); // Debug log
+
+      // If no matches found but query was valid
+      if (matches.length === 0) {
+        return {
+          isEmpty: true,
+          message: `No candidates found matching your criteria for "${data.supervisor_response.original_query}". Try adjusting your search parameters.`,
+          supervisorData: data.supervisor_response
+        };
+      }
 
       // Transform the data to match your component's expected format
       const transformedMatches = matches.map((match, index) => ({
@@ -124,6 +208,10 @@ const ResumeSearchChatBot = () => {
             : [],
           relevance_score: match.score,
           download_url: match.metadata.download_url,
+          job_title: match.metadata.job_title,
+          summary: match.metadata.summary,
+          linkedin: match.metadata.linkedin,
+          filename: match.metadata.filename,
         },
         experience:
           match.metadata.total_experience || "Experience not specified",
@@ -131,7 +219,11 @@ const ResumeSearchChatBot = () => {
       }));
 
       console.log("Transformed matches:", transformedMatches); // Debug log
-      return transformedMatches;
+      return {
+        matches: transformedMatches,
+        supervisorData: data.supervisor_response,
+        rankingData: data.ranking_pipeline_response
+      };
     } catch (error) {
       console.error("Error fetching resumes:", error);
       throw error;
@@ -269,27 +361,74 @@ const ResumeSearchChatBot = () => {
     setSearchProgress({ stage: "", count: 0 });
 
     try {
-      const resumes = await searchResumes(currentInput);
-      console.log("Resumes found:", resumes);
+      const apiResponse = await searchResumes(currentInput);
+      console.log("API Response:", apiResponse);
+      
       const botMessageId = Date.now() + 1;
-      const botMessage = {
-        id: botMessageId,
+      let botMessage;
+
+      // Handle different response types
+      if (apiResponse.isEmpty) {
+        // No matches found but query was valid
+        botMessage = {
+          id: botMessageId,
+          type: "bot",
+          content: apiResponse.message,
+          timestamp: new Date(),
+          shouldType: true,
+        };
+      } else if (apiResponse.matches && apiResponse.matches.length > 0) {
+        // Successful search with results
+        const count = apiResponse.matches.length;
+        const skillsFound = apiResponse.supervisorData?.skill_required || [];
+        const originalQuery = apiResponse.supervisorData?.original_query || currentInput;
+        
+        let content = `Great! I found ${count} excellent candidate${count > 1 ? 's' : ''} matching your criteria for "${originalQuery}".`;
+        
+        if (skillsFound.length > 0) {
+          content += ` Key skills: ${skillsFound.join(', ')}.`;
+        }
+        
+        content += ` Here are the top results, ranked by relevance:`;
+
+        botMessage = {
+          id: botMessageId,
+          type: "bot",
+          content: content,
+          resumes: apiResponse.matches,
+          timestamp: new Date(),
+          shouldType: true,
+          supervisorData: apiResponse.supervisorData,
+          rankingData: apiResponse.rankingData,
+        };
+      } else {
+        // Fallback for unexpected response structure
+        botMessage = {
+          id: botMessageId,
+          type: "bot",
+          content: "I received a response but couldn't process the results. Please try rephrasing your query.",
+          timestamp: new Date(),
+          shouldType: true,
+        };
+      }
+
+      setMessages((prev) => [...prev, botMessage]);
+    } catch (error) {
+      let errorMessage = "Sorry, I encountered an error while searching for resumes. Please try again.";
+      
+      // Use the specific error message if it's from our API validation
+      if (error.message && !error.message.includes("fetch")) {
+        errorMessage = error.message;
+      }
+
+      const botErrorMessage = {
+        id: Date.now() + 1,
         type: "bot",
-        content: `Great! I found ${resumes.length} excellent candidates matching your criteria. Here are the top results, ranked by relevance:`,
-        resumes: resumes,
+        content: errorMessage,
         timestamp: new Date(),
         shouldType: true,
       };
-      setMessages((prev) => [...prev, botMessage]);
-    } catch (error) {
-      const errorMessage = {
-        id: Date.now() + 1,
-        type: "bot",
-        content:
-          "Sorry, I encountered an error while fetching resumes from the database. Please check your connection and try again.",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      setMessages((prev) => [...prev, botErrorMessage]);
       console.error("Resume search error:", error);
     } finally {
       setIsLoading(false);
@@ -395,6 +534,56 @@ const ResumeSearchChatBot = () => {
     setMessages((prev) => [...prev, successMessage]);
   };
 
+  // Handle bulk actions
+  const handleBulkActions = (candidates) => {
+    setBulkModal({ isOpen: true, candidates });
+  };
+
+  const handleBulkEmail = async (candidates, emailData) => {
+    console.log(
+      "Bulk email sent to:",
+      candidates.map((c) => c.metadata?.name || c.name).join(", ")
+    );
+    console.log("Email data:", emailData);
+
+    // Simulate bulk email sending
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    setBulkModal({ isOpen: false, candidates: [] });
+
+    // Add confirmation message
+    const successMessage = {
+      id: Date.now(),
+      type: "bot",
+      content: `📧 Bulk email successfully sent to ${
+        candidates.length
+      } candidates: ${candidates
+        .map((c) => c.metadata?.name || c.name)
+        .join(", ")}`,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, successMessage]);
+  };
+
+  const handleBulkMeeting = async (scheduleData) => {
+    console.log("Bulk meetings scheduled:", scheduleData);
+
+    // Simulate bulk meeting scheduling
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    setBulkModal({ isOpen: false, candidates: [] });
+
+    // Add confirmation message
+    const candidateCount = Object.keys(scheduleData).length;
+    const successMessage = {
+      id: Date.now(),
+      type: "bot",
+      content: `📅 Meetings successfully scheduled for ${candidateCount} candidates. Calendar invites have been sent!`,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, successMessage]);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-blue-50">
       {/* Enhanced Header */}
@@ -413,9 +602,20 @@ const ResumeSearchChatBot = () => {
               </p>
             </div>
           </div>
-          <div className="hidden md:flex items-center space-x-2 text-sm text-gray-500">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span>AI Powered</span>
+          <div className="flex items-center space-x-4">
+            <div className="hidden md:flex items-center space-x-2 text-sm text-gray-500">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span>AI Powered</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+              className="flex items-center space-x-2 text-gray-600 hover:text-red-600 hover:border-red-300"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Logout</span>
+            </Button>
           </div>
         </div>
       </div>
@@ -439,6 +639,7 @@ const ResumeSearchChatBot = () => {
               onUpdateResume={handleUpdateResume}
               onSendEmail={handleSendEmail}
               onScheduleMeeting={handleScheduleMeeting}
+              onBulkActions={handleBulkActions}
             />
           ))}
 
@@ -509,6 +710,14 @@ const ResumeSearchChatBot = () => {
         onClose={() => setMeetingModal({ isOpen: false, candidate: null })}
         candidate={meetingModal.candidate}
         onSchedule={handleMeetingSchedule}
+      />
+
+      <BulkActionsModal
+        isOpen={bulkModal.isOpen}
+        onClose={() => setBulkModal({ isOpen: false, candidates: [] })}
+        candidates={bulkModal.candidates}
+        onBulkEmail={handleBulkEmail}
+        onBulkMeeting={handleBulkMeeting}
       />
     </div>
   );

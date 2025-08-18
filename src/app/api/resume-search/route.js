@@ -22,7 +22,7 @@ export async function POST(req) {
 
         console.log("Sending to API:", formData.toString()); // Debug log
 
-        const response = await fetch("https://a2d3e693d1f3.ngrok-free.app/app_api", {
+        const response = await fetch("https://srv933455.hstgr.cloud:8002/app_api", {
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",

@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { User, Bot } from "lucide-react";
+import { User, Bot, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import ResumeCard from "./ResumeCard";
 
 const TypewriterText = ({
@@ -68,6 +69,7 @@ const MessageComponent = ({
   onUpdateResume,
   onSendEmail,
   onScheduleMeeting,
+  onBulkActions, // New prop for bulk actions
 }) => {
   return (
     <div
@@ -123,48 +125,67 @@ const MessageComponent = ({
             {message.resumes &&
               message.resumes.length > 0 &&
               isTypingComplete && (
-                <motion.div
-                  className="grid gap-6 mt-6"
-                  initial="hidden"
-                  animate="visible"
-                  variants={{
-                    visible: {
-                      transition: {
-                        staggerChildren: 0.1,
+                <div className="space-y-4">
+                  {/* Bulk Actions Button */}
+                  {message.resumes.length > 1 && onBulkActions && (
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={() => onBulkActions(message.resumes)}
+                        variant="outline"
+                        className="flex items-center space-x-2 text-purple-600 border-purple-300 hover:bg-purple-50"
+                      >
+                        <Users className="w-4 h-4" />
+                        <span>
+                          Bulk Actions ({message.resumes.length} candidates)
+                        </span>
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Resume Cards */}
+                  <motion.div
+                    className="grid gap-6"
+                    initial="hidden"
+                    animate="visible"
+                    variants={{
+                      visible: {
+                        transition: {
+                          staggerChildren: 0.1,
+                        },
                       },
-                    },
-                  }}
-                >
-                  {message.resumes.map((resume, resumeIndex) => (
-                    <motion.div
-                      key={resume.id}
-                      variants={{
-                        hidden: {
-                          opacity: 0,
-                          y: 20,
-                          scale: 0.95,
-                        },
-                        visible: {
-                          opacity: 1,
-                          y: 0,
-                          scale: 1,
-                          transition: {
-                            duration: 0.4,
-                            ease: "easeOut",
+                    }}
+                  >
+                    {message.resumes.map((resume, resumeIndex) => (
+                      <motion.div
+                        key={resume.id}
+                        variants={{
+                          hidden: {
+                            opacity: 0,
+                            y: 20,
+                            scale: 0.95,
                           },
-                        },
-                      }}
-                    >
-                      <ResumeCard
-                        resume={resume}
-                        actionLoading={actionLoading}
-                        onUpdateResume={onUpdateResume}
-                        onSendEmail={onSendEmail}
-                        onScheduleMeeting={onScheduleMeeting}
-                      />
-                    </motion.div>
-                  ))}
-                </motion.div>
+                          visible: {
+                            opacity: 1,
+                            y: 0,
+                            scale: 1,
+                            transition: {
+                              duration: 0.4,
+                              ease: "easeOut",
+                            },
+                          },
+                        }}
+                      >
+                        <ResumeCard
+                          resume={resume}
+                          actionLoading={actionLoading}
+                          onUpdateResume={onUpdateResume}
+                          onSendEmail={onSendEmail}
+                          onScheduleMeeting={onScheduleMeeting}
+                        />
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                </div>
               )}
           </div>
         )}
