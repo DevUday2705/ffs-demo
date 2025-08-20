@@ -54,7 +54,23 @@ export async function POST(req) {
         const data = await response.json();
         console.log("API Response data:", data); // Debug log
 
-        // Validate the response structure
+        // Check for "Follow-up or pre-handled case." message first (Scenario 3: Invalid query)
+        if (data.message === "Follow-up or pre-handled case.") {
+            return new Response(
+                JSON.stringify({
+                    error: "This query is beyond the scope of this application. Let's discuss about candidate requirements for skills or share job reference number you need candidates for.",
+                    originalResponse: data
+                }),
+                {
+                    status: 400, // Use 400 instead of 500 since it's a client error (invalid query)
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+        }
+
+        // Validate the response structure only for valid queries
         if (!data.ranking_pipeline_response || !data.ranking_pipeline_response.response) {
             console.error("Invalid API response structure:", data);
             return new Response(

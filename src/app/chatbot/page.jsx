@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 const ResumeSearchChatBot = () => {
   const router = useRouter();
-  
+
   // All hooks must be declared at the top level, before any conditional returns
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -149,48 +149,23 @@ const ResumeSearchChatBot = () => {
           .json()
           .catch(() => ({ error: "Unknown error" }));
         console.error("API Error Response:", errorData);
-        throw new Error(`API Error: ${errorData.error || response.statusText}`);
+        // Extract the error message - this will contain our custom "beyond scope" message
+        throw new Error(errorData.error || response.statusText);
       }
 
       const data = await response.json();
       console.log("API Response data:", data); // Debug log
 
-      // Check for supervisor response with error message
-      if (data.supervisor_response && data.supervisor_response.message && !data.supervisor_response.pipeline_ran) {
-        // This is an invalid query or out-of-scope request
-        throw new Error(data.supervisor_response.message);
-      }
-
-      // Check if we have a message field at the top level (like "Follow-up or pre-handled case.")
-      if (data.message && data.supervisor_response && !data.supervisor_response.pipeline_ran) {
-        // Check specifically for "Follow-up or pre-handled case." message
-        if (data.message === "Follow-up or pre-handled case.") {
-          throw new Error("This query is outside the scope of this application. Let's discuss about the skill / candidate requirements.");
-        }
-        // For other cases, use the supervisor message or fallback to the main message
-        throw new Error(data.supervisor_response.message || data.message);
-      }
-
-      // Validate response structure for successful cases
-      if (
-        !data.ranking_pipeline_response ||
-        !data.ranking_pipeline_response.response ||
-        !data.supervisor_response ||
-        !data.supervisor_response.pipeline_ran
-      ) {
-        console.error("Invalid response structure:", data);
-        throw new Error("Invalid response structure from API");
-      }
-
+      // At this point, we know the response is valid since API route validates it
       const matches = data.ranking_pipeline_response.response.matches || [];
       console.log("Extracted matches:", matches); // Debug log
 
-      // If no matches found but query was valid
+      // SCENARIO 1: Valid query but no matches (pipeline_ran = true, matches = [])
       if (matches.length === 0) {
         return {
           isEmpty: true,
-          message: `No candidates found matching your criteria for "${data.supervisor_response.original_query}". Try adjusting your search parameters.`,
-          supervisorData: data.supervisor_response
+          message: `No candidates found matching your criteria for "${data.supervisor_response.original_query}". Try adjusting your search parameters or contact us for more specific requirements.`,
+          supervisorData: data.supervisor_response,
         };
       }
 
@@ -222,7 +197,7 @@ const ResumeSearchChatBot = () => {
       return {
         matches: transformedMatches,
         supervisorData: data.supervisor_response,
-        rankingData: data.ranking_pipeline_response
+        rankingData: data.ranking_pipeline_response,
       };
     } catch (error) {
       console.error("Error fetching resumes:", error);
@@ -363,7 +338,7 @@ const ResumeSearchChatBot = () => {
     try {
       const apiResponse = await searchResumes(currentInput);
       console.log("API Response:", apiResponse);
-      
+
       const botMessageId = Date.now() + 1;
       let botMessage;
 
@@ -381,14 +356,17 @@ const ResumeSearchChatBot = () => {
         // Successful search with results
         const count = apiResponse.matches.length;
         const skillsFound = apiResponse.supervisorData?.skill_required || [];
-        const originalQuery = apiResponse.supervisorData?.original_query || currentInput;
-        
-        let content = `Great! I found ${count} excellent candidate${count > 1 ? 's' : ''} matching your criteria for "${originalQuery}".`;
-        
+        const originalQuery =
+          apiResponse.supervisorData?.original_query || currentInput;
+
+        let content = `Great! I found ${count} excellent candidate${
+          count > 1 ? "s" : ""
+        } matching your criteria for "${originalQuery}".`;
+
         if (skillsFound.length > 0) {
-          content += ` Key skills: ${skillsFound.join(', ')}.`;
+          content += ` Key skills: ${skillsFound.join(", ")}.`;
         }
-        
+
         content += ` Here are the top results, ranked by relevance:`;
 
         botMessage = {
@@ -406,7 +384,8 @@ const ResumeSearchChatBot = () => {
         botMessage = {
           id: botMessageId,
           type: "bot",
-          content: "I received a response but couldn't process the results. Please try rephrasing your query.",
+          content:
+            "I received a response but couldn't process the results. Please try rephrasing your query.",
           timestamp: new Date(),
           shouldType: true,
         };
@@ -414,8 +393,9 @@ const ResumeSearchChatBot = () => {
 
       setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
-      let errorMessage = "Sorry, I encountered an error while searching for resumes. Please try again.";
-      
+      let errorMessage =
+        "Sorry, I encountered an error while searching for resumes. Please try again.";
+
       // Use the specific error message if it's from our API validation
       if (error.message && !error.message.includes("fetch")) {
         errorMessage = error.message;
@@ -680,7 +660,7 @@ const ResumeSearchChatBot = () => {
                   onClick={handleSubmit}
                   disabled={isLoading}
                   size="sm"
-                  className="absolute right-3 bottom-3 h-10 w-10 p-0 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                  className="absolute right-3 bottom-3 h-10 w-10 p-0 bg-slate-600 hover:bg-slate-700 text-white"
                 >
                   {isLoading ? (
                     <Loader2 className="w-5 h-5 animate-spin" />

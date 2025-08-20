@@ -132,7 +132,7 @@ const MessageComponent = ({
                       <Button
                         onClick={() => onBulkActions(message.resumes)}
                         variant="outline"
-                        className="flex items-center space-x-2 text-purple-600 border-purple-300 hover:bg-purple-50"
+                        className="flex items-center space-x-2 text-violet-700 border-violet-200 hover:bg-violet-50 bg-violet-25"
                       >
                         <Users className="w-4 h-4" />
                         <span>

@@ -192,7 +192,7 @@ Meeting agenda:
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
+            <div className="p-2 bg-violet-50 rounded-lg">
               <Users className="w-5 h-5 text-purple-600" />
             </div>
             <div>
@@ -311,7 +311,7 @@ Meeting agenda:
                   <Button
                     onClick={handleBulkEmail}
                     disabled={isProcessing || selectedCandidates.length === 0}
-                    className="bg-green-500 hover:bg-green-600"
+                    className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
                   >
                     {isProcessing ? (
                       <>
@@ -451,7 +451,7 @@ Meeting agenda:
                   <Button
                     onClick={handleBulkMeeting}
                     disabled={isProcessing || validMeetings === 0}
-                    className="bg-purple-500 hover:bg-purple-600"
+                    className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
                   >
                     {isProcessing ? (
                       <>
