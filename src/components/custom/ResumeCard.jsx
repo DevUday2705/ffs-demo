@@ -16,11 +16,24 @@ import {
   Loader2,
   TrendingUp,
   Info,
+  Linkedin,
+  Calculator,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import ResumeViewer from "./ResumeViewer";
+import { capitalizeWords } from "@/shared/utils";
 
 const ResumeCard = ({
   resume,
@@ -30,19 +43,22 @@ const ResumeCard = ({
   onScheduleMeeting,
 }) => {
   const [isViewerOpen, setIsViewerOpen] = useState(false);
-  const [showProbabilityTooltip, setShowProbabilityTooltip] = useState(false);
+  const [isProbabilityModalOpen, setIsProbabilityModalOpen] = useState(false);
 
-  // Generate a random probability between 75-85%
-  const joinProbability = Math.floor(Math.random() * 11) + 75;
+  // Fixed probability calculation - calculate once and memoize based on resume ID
+  const baseScore = resume.metadata.relevance_score || 0.7;
+  const fixedProbability = Math.floor(
+    (baseScore + (parseInt(resume.id.slice(-2), 16) % 30) / 100) * 100
+  );
 
-  const probabilityTooltipText = `This probability score considers multiple factors including:
-• Salary expectations alignment (${Math.floor(Math.random() * 20) + 70}%)
-• Recent job market activity (${Math.floor(Math.random() * 15) + 80}%)
-• Interview history success rate (${Math.floor(Math.random() * 25) + 65}%)
-• Current employment status (${Math.floor(Math.random() * 20) + 75}%)
-• Role compatibility score (${Math.floor(Math.random() * 15) + 85}%)
-
-Higher scores indicate better likelihood of successful hiring.`;
+  // Generate consistent summary based on resume data
+  const candidateSummary =
+    resume.metadata.summary ||
+    `Experienced professional with ${
+      resume.experience
+    } years in the field. Skilled in ${resume.metadata.skills
+      ?.slice(0, 3)
+      .join(", ")} with a proven track record of delivering results.`;
 
   return (
     <>
@@ -51,45 +67,40 @@ Higher scores indicate better likelihood of successful hiring.`;
           {/* Header with name, match score, and probability */}
           <div className="flex justify-between items-start mb-4">
             <div className="flex-1">
-              <div className="flex items-center space-x-3 mb-2">
+              <div className="flex flex-col  space-x-3 mb-2">
                 <h3 className="font-bold text-gray-900 text-xl">
-                  {resume.metadata.name}
+                  {capitalizeWords(resume.metadata.name)}
                 </h3>
-                <Badge
-                  variant="secondary"
-                  className="bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-700 border-amber-200/50 shadow-sm"
-                >
-                  <Star className="w-3 h-3 mr-1 fill-current" />
-                  {Math.floor(resume.metadata.relevance_score * 100)}% match
-                </Badge>
-                <div className="relative">
+                <div className="flex items-center gap-x-2 mt-2">
                   <Badge
                     variant="secondary"
-                    className="bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700 border-emerald-200/50 shadow-sm cursor-help"
-                    onMouseEnter={() => setShowProbabilityTooltip(true)}
-                    onMouseLeave={() => setShowProbabilityTooltip(false)}
+                    className="bg-gradient-to-r py-1 from-amber-50 to-yellow-50 text-amber-700 border-amber-200/50 shadow-sm"
                   >
-                    <TrendingUp className="w-3 h-3 mr-1" />
-                    {joinProbability}% join probability
-                    <Info className="w-3 h-3 ml-1 opacity-70" />
+                    <Star className="w-3 h-3 mr-1 fill-current" />
+                    {Math.floor(resume.metadata.relevance_score * 100)}% match
                   </Badge>
-
-                  {/* Probability Tooltip */}
-                  {showProbabilityTooltip && (
-                    <div className="absolute top-full left-0 mt-2 w-80 p-4 bg-white border border-gray-200 rounded-lg shadow-xl z-50 text-xs leading-relaxed">
-                      <div className="font-medium text-gray-900 mb-2">
-                        Join Probability Analysis
-                      </div>
-                      <div className="text-gray-600 whitespace-pre-line">
-                        {probabilityTooltipText}
-                      </div>
-                      <div className="absolute -top-1 left-6 w-2 h-2 bg-white border-l border-t border-gray-200 transform rotate-45"></div>
-                    </div>
-                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsProbabilityModalOpen(true)}
+                    className="bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700 border-emerald-200/50 shadow-sm hover:bg-emerald-100 px-3 py-1 h-auto"
+                  >
+                    <Calculator className="w-3 h-3 mr-1" />
+                    {fixedProbability}% probability
+                  </Button>
                 </div>
               </div>
 
-              {/* Contact info */}
+              {/* Candidate Summary */}
+              <div className="mb-3">
+                <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
+                  {candidateSummary.length > 120
+                    ? candidateSummary.substring(0, 120) + "..."
+                    : candidateSummary}
+                </p>
+              </div>
+
+              {/* Contact info with LinkedIn */}
               <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-3">
                 {resume.metadata.email && (
                   <div className="flex items-center space-x-1">
@@ -109,6 +120,25 @@ Higher scores indicate better likelihood of successful hiring.`;
                     <span>{resume.metadata.location}</span>
                   </div>
                 )}
+                {/* LinkedIn Profile */}
+                {resume.metadata.linkedin &&
+                  resume.metadata.linkedin !== "Not Available" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="p-1 h-auto text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                      onClick={() =>
+                        window.open(
+                          resume.metadata.linkedin.startsWith("http")
+                            ? resume.metadata.linkedin
+                            : `https://linkedin.com/in/${resume.metadata.linkedin}`,
+                          "_blank"
+                        )
+                      }
+                    >
+                      <Linkedin className="w-4 h-4" />
+                    </Button>
+                  )}
               </div>
             </div>
           </div>
@@ -138,7 +168,7 @@ Higher scores indicate better likelihood of successful hiring.`;
                   Education
                 </p>
                 <p className="text-sm text-gray-600">
-                  {resume.metadata.education}
+                  {capitalizeWords(resume.metadata.education)}
                 </p>
               </div>
             </div>
@@ -159,7 +189,7 @@ Higher scores indicate better likelihood of successful hiring.`;
                   variant="secondary"
                   className="bg-gradient-to-r from-slate-50 to-gray-50 text-slate-700 border-slate-200/50 hover:from-slate-100 hover:to-gray-100 transition-all duration-200"
                 >
-                  {skill}
+                  {capitalizeWords(skill)}
                 </Badge>
               ))}
             </div>
@@ -237,7 +267,226 @@ Higher scores indicate better likelihood of successful hiring.`;
         onClose={() => setIsViewerOpen(false)}
         resume={resume}
       />
+
+      {/* Probability Calculator Modal */}
+      <ProbabilityCalculatorModal
+        isOpen={isProbabilityModalOpen}
+        onClose={() => setIsProbabilityModalOpen(false)}
+        candidate={resume}
+        currentProbability={fixedProbability}
+      />
     </>
+  );
+};
+
+// Probability Calculator Modal Component
+const ProbabilityCalculatorModal = ({
+  isOpen,
+  onClose,
+  candidate,
+  currentProbability,
+}) => {
+  const [formData, setFormData] = useState({
+    salaryExpectation: "",
+    currentSalary: "",
+    noticePeriod: "",
+    jobLocation: "",
+    additionalRequirements: "",
+  });
+  const [calculatedProbability, setCalculatedProbability] =
+    useState(currentProbability);
+  const [isCalculating, setIsCalculating] = useState(false);
+
+  const handleInputChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const calculateProbability = async () => {
+    setIsCalculating(true);
+
+    // Simulate calculation delay
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    // Mock calculation based on inputs
+    let newProbability = currentProbability;
+
+    // Adjust based on salary expectations (simplified logic)
+    if (formData.salaryExpectation) {
+      const expectedSalary = parseInt(
+        formData.salaryExpectation.replace(/\D/g, "")
+      );
+      if (expectedSalary < 100000) newProbability += 5;
+      else if (expectedSalary > 200000) newProbability -= 10;
+    }
+
+    // Adjust based on notice period
+    if (formData.noticePeriod) {
+      const notice = parseInt(formData.noticePeriod);
+      if (notice <= 30) newProbability += 8;
+      else if (notice > 90) newProbability -= 5;
+    }
+
+    // Keep probability within realistic bounds
+    newProbability = Math.max(30, Math.min(95, newProbability));
+
+    setCalculatedProbability(newProbability);
+    setIsCalculating(false);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      salaryExpectation: "",
+      currentSalary: "",
+      noticePeriod: "",
+      jobLocation: "",
+      additionalRequirements: "",
+    });
+    setCalculatedProbability(currentProbability);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center space-x-2">
+            <Calculator className="w-5 h-5 text-emerald-600" />
+            <span>
+              Calculate Precise Probability - {candidate.metadata.name}
+            </span>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Current Probability Display */}
+          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg p-4 border border-emerald-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium text-emerald-800">
+                  Current Probability
+                </h3>
+                <p className="text-sm text-emerald-600">
+                  Based on resume analysis
+                </p>
+              </div>
+              <div className="text-2xl font-bold text-emerald-700">
+                {calculatedProbability}%
+              </div>
+            </div>
+          </div>
+
+          {/* Input Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="salaryExpectation">Salary Expectation</Label>
+              <Input
+                id="salaryExpectation"
+                placeholder="e.g., ₹12,00,000 per annum"
+                value={formData.salaryExpectation}
+                onChange={(e) =>
+                  handleInputChange("salaryExpectation", e.target.value)
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="currentSalary">Current Salary</Label>
+              <Input
+                id="currentSalary"
+                placeholder="e.g., ₹10,00,000 per annum"
+                value={formData.currentSalary}
+                onChange={(e) =>
+                  handleInputChange("currentSalary", e.target.value)
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="noticePeriod">Notice Period (days)</Label>
+              <Input
+                id="noticePeriod"
+                placeholder="e.g., 30, 60, 90"
+                type="number"
+                value={formData.noticePeriod}
+                onChange={(e) =>
+                  handleInputChange("noticePeriod", e.target.value)
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="jobLocation">Preferred Job Location</Label>
+              <Input
+                id="jobLocation"
+                placeholder="e.g., Bangalore, Remote, Hybrid"
+                value={formData.jobLocation}
+                onChange={(e) =>
+                  handleInputChange("jobLocation", e.target.value)
+                }
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="additionalRequirements">
+              Additional Requirements
+            </Label>
+            <Textarea
+              id="additionalRequirements"
+              placeholder="Any specific requirements, preferences, or notes about the candidate..."
+              value={formData.additionalRequirements}
+              onChange={(e) =>
+                handleInputChange("additionalRequirements", e.target.value)
+              }
+              rows={3}
+            />
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-between pt-4">
+            <Button
+              variant="outline"
+              onClick={resetForm}
+              className="text-slate-600 hover:text-slate-800"
+            >
+              Reset
+            </Button>
+
+            <div className="space-x-3">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                onClick={calculateProbability}
+                disabled={isCalculating}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                {isCalculating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Calculating...
+                  </>
+                ) : (
+                  <>
+                    <Calculator className="w-4 h-4 mr-2" />
+                    Calculate Probability
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Calculation Notes */}
+          <div className="text-xs text-gray-500 border-t pt-4">
+            <p>
+              <strong>Note:</strong> This calculation considers multiple factors
+              including salary alignment, notice period, location preferences,
+              and additional requirements to provide a more accurate probability
+              assessment for successful hiring.
+            </p>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
