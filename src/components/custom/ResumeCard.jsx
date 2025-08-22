@@ -67,7 +67,7 @@ const ResumeCard = ({
           {/* Header with name, match score, and probability */}
           <div className="flex justify-between items-start mb-4">
             <div className="flex-1">
-              <div className="flex flex-col  space-x-3 mb-2">
+              <div className="flex flex-col  space-x-3 mb-2 md:flex-row md:items-center">
                 <h3 className="font-bold text-gray-900 text-xl">
                   {capitalizeWords(resume.metadata.name)}
                 </h3>
@@ -187,9 +187,9 @@ const ResumeCard = ({
                 <Badge
                   key={index}
                   variant="secondary"
-                  className="bg-gradient-to-r from-slate-50 to-gray-50 text-slate-700 border-slate-200/50 hover:from-slate-100 hover:to-gray-100 transition-all duration-200"
+                  className="bg-gradient-to-r uppercase from-slate-50 to-gray-50 text-slate-700 border-slate-200/50 hover:from-slate-100 hover:to-gray-100 transition-all duration-200"
                 >
-                  {capitalizeWords(skill)}
+                  {skill}
                 </Badge>
               ))}
             </div>
@@ -351,7 +351,8 @@ const ProbabilityCalculatorModal = ({
           <DialogTitle className="flex items-center space-x-2">
             <Calculator className="w-5 h-5 text-emerald-600" />
             <span>
-              Calculate Precise Probability - {candidate.metadata.name}
+              Calculate Precise Probability -{" "}
+              {capitalizeWords(candidate.metadata.name)}
             </span>
           </DialogTitle>
         </DialogHeader>

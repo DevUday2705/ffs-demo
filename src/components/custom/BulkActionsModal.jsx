@@ -33,6 +33,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import { capitalizeWords } from "@/shared/utils";
 
 const BulkActionsModal = ({
   isOpen,
@@ -392,7 +393,7 @@ Meeting agenda:
                         <Card key={candidateId} className="p-3">
                           <div className="space-y-3">
                             <div className="font-medium text-sm">
-                              {candidate.metadata.name}
+                              {capitalizeWords(candidate.metadata.name)}
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                               <div>
