@@ -58,9 +58,9 @@ We have an exciting opportunity that might be of interest to you. Based on your 
 Would you be available for a brief conversation to discuss this opportunity further?
 
 Best regards,
-[Your Name]
-[Your Company]
-[Your Contact Information]`,
+John Doe
+Sumo Digitech
+9920271866`,
   });
 
   // Meeting data for bulk scheduling
@@ -133,10 +133,44 @@ Meeting agenda:
         selectedCandidates.includes(c.id)
       );
 
-      await onBulkEmail(selectedCandidateData, emailData);
+      // Prepare bulk email payload for the API
+      const emailPayload = {
+        emails: selectedCandidateData.map((candidate) => ({
+          name: candidate.metadata?.name || "Candidate",
+          email: "devuday2705@gmail.com", // Hardcoded for now as requested
+          subject: emailData.subject,
+          body: emailData.body.replace(
+            /{candidate\.metadata\.name}/g,
+            candidate.metadata?.name || "Candidate"
+          ),
+        })),
+      };
+
+      // Call the internal mail API
+      const response = await fetch("/api/mail", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(emailPayload),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to send bulk emails");
+      }
+
+      const result = await response.json();
+      console.log("Bulk emails sent successfully:", result);
+
+      // Call the original onBulkEmail callback if it exists (for any additional handling)
+      if (onBulkEmail) {
+        await onBulkEmail(selectedCandidateData, emailData);
+      }
+
       onClose();
     } catch (error) {
       console.error("Bulk email error:", error);
+      alert("Failed to send bulk emails. Please try again.");
     } finally {
       setIsProcessing(false);
     }

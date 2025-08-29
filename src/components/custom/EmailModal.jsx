@@ -28,7 +28,7 @@ const EmailModal = ({ isOpen, onClose, candidate, onSend }) => {
   useEffect(() => {
     if (candidate && isOpen) {
       setEmailData({
-        to: candidate.metadata?.email || "",
+        to: "devuday2705@gmail.com", // Hardcoded as requested
         subject: `Job Opportunity - ${candidate.metadata?.name || "Candidate"}`,
         body: `Dear ${candidate.metadata?.name || "Candidate"},
 
@@ -39,9 +39,9 @@ We have an exciting opportunity that might be of interest to you. Based on your 
 Would you be available for a brief conversation to discuss this opportunity further?
 
 Best regards,
-[Your Name]
-[Your Company]
-[Your Contact Information]`,
+John Doe
+Sumo Digitech
+9920271866`,
       });
     }
   }, [candidate, isOpen]);
@@ -49,7 +49,39 @@ Best regards,
   const handleSend = async () => {
     setSending(true);
     try {
-      await onSend(candidate.id, candidate.metadata.name, emailData);
+      // Prepare email payload for the API
+      const emailPayload = {
+        emails: [
+          {
+            name: candidate.metadata?.name || "Candidate",
+            email: "devuday2705@gmail.com", // Hardcoded for now as requested
+            subject: emailData.subject,
+            body: emailData.body,
+          },
+        ],
+      };
+
+      // Call the internal mail API
+      const response = await fetch("/api/mail", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(emailPayload),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to send email");
+      }
+
+      const result = await response.json();
+      console.log("Email sent successfully:", result);
+
+      // Call the original onSend callback if it exists (for any additional handling)
+      if (onSend) {
+        await onSend(candidate.id, candidate.metadata.name, emailData);
+      }
+
       onClose();
       // Reset form data
       setEmailData({
@@ -59,6 +91,7 @@ Best regards,
       });
     } catch (error) {
       console.error("Error sending email:", error);
+      alert("Failed to send email. Please try again.");
     } finally {
       setSending(false);
     }
@@ -94,9 +127,7 @@ Best regards,
                 <h3 className="font-semibold text-gray-900">
                   {candidate.metadata.name}
                 </h3>
-                <p className="text-sm text-gray-600">
-                  {candidate.metadata.email}
-                </p>
+                <p className="text-sm text-gray-600">devuday2705@gmail.com</p>
                 {candidate.metadata.location && (
                   <p className="text-xs text-gray-500">
                     {candidate.metadata.location}
