@@ -370,7 +370,7 @@ const ProbabilityCalculatorModal = ({
                 </p>
               </div>
               <div className="text-2xl font-bold text-emerald-700">
-                {calculatedProbability}%
+                {Math.max(calculatedProbability, 100)}%
               </div>
             </div>
           </div>

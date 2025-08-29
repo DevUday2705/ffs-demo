@@ -48,7 +48,6 @@ export default function ChatbotLogin() {
         // Store authentication state
         localStorage.setItem("isAuthenticated", "true");
         localStorage.setItem("userLoginId", formData.loginId);
-
         // Redirect to chatbot
         router.push("/chatbot");
       } else {
