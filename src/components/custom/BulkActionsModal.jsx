@@ -58,9 +58,9 @@ We have an exciting opportunity that might be of interest to you. Based on your 
 Would you be available for a brief conversation to discuss this opportunity further?
 
 Best regards,
-[Your Name]
-[Your Company]
-[Your Contact Information]`,
+John Doe
+Sumo Digitech
+9920271866`,
   });
 
   // Meeting data for bulk scheduling
@@ -133,10 +133,44 @@ Meeting agenda:
         selectedCandidates.includes(c.id)
       );
 
-      await onBulkEmail(selectedCandidateData, emailData);
+      // Prepare bulk email payload for the API
+      const emailPayload = {
+        emails: selectedCandidateData.map((candidate) => ({
+          name: candidate.metadata?.name || "Candidate",
+          email: "devuday2705@gmail.com", // Hardcoded for now as requested
+          subject: emailData.subject,
+          body: emailData.body.replace(
+            /{candidate\.metadata\.name}/g,
+            candidate.metadata?.name || "Candidate"
+          ),
+        })),
+      };
+
+      // Call the internal mail API
+      const response = await fetch("/api/mail", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(emailPayload),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to send bulk emails");
+      }
+
+      const result = await response.json();
+      console.log("Bulk emails sent successfully:", result);
+
+      // Call the original onBulkEmail callback if it exists (for any additional handling)
+      if (onBulkEmail) {
+        await onBulkEmail(selectedCandidateData, emailData);
+      }
+
       onClose();
     } catch (error) {
       console.error("Bulk email error:", error);
+      alert("Failed to send bulk emails. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -150,23 +184,66 @@ Meeting agenda:
           const candidate = candidates.find((c) => c.id === candidateId);
           const meetingTime = individualMeetings[candidateId];
 
+          if (!meetingTime.date || !meetingTime.time) return null;
+
+          // Calculate end time based on duration with date
+          const [startHour, startMinute] = meetingTime.time.split(':').map(Number);
+          const durationMinutes = parseInt(meetingData.duration);
+          const endTime = new Date();
+          endTime.setHours(startHour, startMinute + durationMinutes);
+          const endTimeString = `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
+
+          // Format start and end times with date
+          const startDateTime = `${meetingTime.date} ${meetingTime.time}`;
+          const endDateTime = `${meetingTime.date} ${endTimeString}`;
+
           return {
-            candidate,
-            meetingData: {
-              ...meetingData,
-              date: meetingTime.date,
-              time: meetingTime.time,
-            },
+            candidate_name: candidate.metadata?.name || "Candidate",
+            candidate_email: "devuday2705@gmail.com", // Hardcoded for now
+            subject: `Interview - ${candidate.metadata?.name || "Candidate"}`,
+            start_time: startDateTime,
+            end_time: endDateTime,
+            timezone: "IST",
+            description: meetingData.remarks
           };
         })
-        .filter(
-          (meeting) => meeting.meetingData.date && meeting.meetingData.time
-        );
+        .filter(meeting => meeting !== null);
 
-      await onBulkMeeting(meetingsToSchedule);
+      if (meetingsToSchedule.length === 0) {
+        alert("Please select valid meeting times for all candidates");
+        return;
+      }
+
+      // Prepare bulk meeting payload for the API
+      const meetingPayload = {
+        meetings: meetingsToSchedule
+      };
+
+      // Call the internal meeting API
+      const response = await fetch("/api/meet", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(meetingPayload),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to schedule bulk meetings");
+      }
+
+      const result = await response.json();
+      console.log("Bulk meetings scheduled successfully:", result);
+
+      // Call the original onBulkMeeting callback if it exists (for any additional handling)
+      if (onBulkMeeting) {
+        await onBulkMeeting(meetingsToSchedule);
+      }
+
       onClose();
     } catch (error) {
       console.error("Bulk meeting error:", error);
+      alert("Failed to schedule bulk meetings. Please try again.");
     } finally {
       setIsProcessing(false);
     }

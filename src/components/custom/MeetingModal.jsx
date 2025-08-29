@@ -77,7 +77,53 @@ Meeting agenda:
   const handleSchedule = async () => {
     setScheduling(true);
     try {
-      await onSchedule(candidate.id, candidate.metadata.name, meetingData);
+      // Calculate end time based on duration with date
+      const [startHour, startMinute] = meetingData.time.split(':').map(Number);
+      const durationMinutes = parseInt(meetingData.duration);
+      const endTime = new Date();
+      endTime.setHours(startHour, startMinute + durationMinutes);
+      const endTimeString = `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`;
+
+      // Format start and end times with date
+      const startDateTime = `${meetingData.date} ${meetingData.time}`;
+      const endDateTime = `${meetingData.date} ${endTimeString}`;
+
+      // Prepare meeting payload for the API
+      const meetingPayload = {
+        meetings: [
+          {
+            candidate_name: candidate.metadata?.name || "Candidate",
+            candidate_email: "devuday2705@gmail.com", // Hardcoded for now
+            subject: `Interview - ${candidate.metadata?.name || "Candidate"}`,
+            start_time: startDateTime,
+            end_time: endDateTime,
+            timezone: "IST",
+            description: meetingData.remarks
+          }
+        ]
+      };
+
+      // Call the internal meeting API
+      const response = await fetch("/api/meet", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(meetingPayload),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to schedule meeting");
+      }
+
+      const result = await response.json();
+      console.log("Meeting scheduled successfully:", result);
+
+      // Call the original onSchedule callback if it exists (for any additional handling)
+      if (onSchedule) {
+        await onSchedule(candidate.id, candidate.metadata.name, meetingData);
+      }
+
       onClose();
       setMeetingData({
         date: "",
@@ -88,6 +134,7 @@ Meeting agenda:
       });
     } catch (error) {
       console.error("Error scheduling meeting:", error);
+      alert("Failed to schedule meeting. Please try again.");
     } finally {
       setScheduling(false);
     }
@@ -123,12 +170,10 @@ Meeting agenda:
                 <h3 className="font-semibold text-gray-900">
                   {candidate.metadata.name}
                 </h3>
-                <p className="text-sm text-gray-600">
-                  {candidate.metadata.email}
-                </p>
-                {candidate.metadata.phone && (
+                <p className="text-sm text-gray-600">devuday2705@gmail.com</p>
+                {candidate.metadata.location && (
                   <p className="text-xs text-gray-500">
-                    {candidate.metadata.phone}
+                    {candidate.metadata.location}
                   </p>
                 )}
               </div>
