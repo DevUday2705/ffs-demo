@@ -17,6 +17,8 @@ const ResumeSearchChatBot = () => {
   // All hooks must be declared at the top level, before any conditional returns
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [threadId, setThreadId] = useState(null);
+  const [isInitializingSession, setIsInitializingSession] = useState(false);
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -80,6 +82,46 @@ const ResumeSearchChatBot = () => {
     checkAuth();
   }, [router]);
 
+  // Initialize session when authenticated
+  useEffect(() => {
+    if (isAuthenticated && !threadId && !isInitializingSession) {
+      initializeSession();
+    }
+  }, [isAuthenticated, threadId, isInitializingSession]);
+
+  // Initialize session with the API
+  const initializeSession = async () => {
+    setIsInitializingSession(true);
+    try {
+      console.log("Initializing session...");
+      const response = await fetch("/api/session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Session initialization failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("Session initialized:", data);
+      setThreadId(data.thread_id);
+    } catch (error) {
+      console.error("Failed to initialize session:", error);
+      // Add error message to chat
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        type: "bot",
+        content: "I'm having trouble connecting to the service. Please refresh the page to try again.",
+        timestamp: new Date(),
+      }]);
+    } finally {
+      setIsInitializingSession(false);
+    }
+  };
+
   // Auto-scroll when new messages are added, but only if user is near bottom
   useEffect(() => {
     if (messagesContainerRef.current) {
@@ -128,77 +170,144 @@ const ResumeSearchChatBot = () => {
     return null;
   }
 
-  // Mock resume data - replace with actual API response
+  // Show loading while initializing session
+  if (isInitializingSession || (isAuthenticated && !threadId)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Initializing session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // New API implementation for resume search
   const fetchResumesFromAPI = async (query) => {
     try {
-      console.log("Sending query to API:", query); // Debug log
+      console.log("Sending query to API:", query, "Thread ID:", threadId);
 
-      const response = await fetch("/api/resume-search", {
+      if (!threadId) {
+        throw new Error("Session not initialized. Please refresh the page.");
+      }
+
+      const formData = new URLSearchParams();
+      formData.append("query", query);
+      formData.append("thread_id", threadId);
+
+      const response = await fetch("/api/invoke", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({
+          query: query,
+          thread_id: threadId,
+        }),
       });
 
-      console.log("Response status:", response.status); // Debug log
-      console.log("Response headers:", response.headers); // Debug log
+      console.log("Response status:", response.status);
 
       if (!response.ok) {
-        const errorData = await response
-          .json()
-          .catch(() => ({ error: "Unknown error" }));
-        console.error("API Error Response:", errorData);
-        // Extract the error message - this will contain our custom "beyond scope" message
-        throw new Error(errorData.error || response.statusText);
+        throw new Error(`API request failed with status ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("API Response data:", data); // Debug log
+      console.log("API Response data:", data);
 
-      // At this point, we know the response is valid since API route validates it
-      const matches = data.ranking_pipeline_response.response.matches || [];
-      console.log("Extracted matches:", matches); // Debug log
+      // Scenario 1: Direct results with resumes.matches
+      if (data.resumes && data.resumes.matches) {
+        const matches = data.resumes.matches;
+        
+        if (matches.length === 0) {
+          return {
+            isEmpty: true,
+            message: "I couldn't find any candidates matching your specific criteria. Try adjusting your search parameters or providing different skills/requirements.",
+          };
+        }
 
-      // SCENARIO 1: Valid query but no matches (pipeline_ran = true, matches = [])
-      if (matches.length === 0) {
+        // Transform the data to match component's expected format
+        const transformedMatches = matches.map((match, index) => ({
+          id: match.id,
+          metadata: {
+            name: match.metadata.full_name || `Candidate ${index + 1}`,
+            email: match.metadata.email,
+            phone: match.metadata.phone_number,
+            location: match.metadata.location,
+            education: match.metadata.education || "Information not available",
+            skills: Array.isArray(match.metadata.skills) ? match.metadata.skills : [],
+            relevance_score: match.score,
+            download_url: match.metadata.download_url,
+            job_title: match.metadata.job_title,
+            summary: match.metadata.summary,
+            linkedin: match.metadata.linkedin,
+            filename: match.metadata.filename,
+          },
+          experience: match.metadata.total_experience || "Experience not specified",
+          resumeUrl: match.metadata.download_url,
+        }));
+
+        return {
+          matches: transformedMatches,
+          message: `Great! I found ${matches.length} excellent candidate${matches.length > 1 ? 's' : ''} matching your requirements.`,
+        };
+      } 
+      // Scenario 1b: Fallback for old ranking_pipeline_response structure
+      else if (data.ranking_pipeline_response && data.ranking_pipeline_response.response) {
+        const matches = data.ranking_pipeline_response.response;
+        
+        if (matches.length === 0) {
+          return {
+            isEmpty: true,
+            message: "I couldn't find any candidates matching your specific criteria. Try adjusting your search parameters or providing different skills/requirements.",
+          };
+        }
+
+        // Transform the data to match component's expected format
+        const transformedMatches = matches.map((match, index) => ({
+          id: match.id,
+          metadata: {
+            name: match.metadata.full_name || `Candidate ${index + 1}`,
+            email: match.metadata.email,
+            phone: match.metadata.phone_number,
+            location: match.metadata.location,
+            education: match.metadata.education || "Information not available",
+            skills: Array.isArray(match.metadata.skills) ? match.metadata.skills : [],
+            relevance_score: match.score,
+            download_url: match.metadata.download_url,
+            job_title: match.metadata.job_title,
+            summary: match.metadata.summary,
+            linkedin: match.metadata.linkedin,
+            filename: match.metadata.filename,
+          },
+          experience: match.metadata.total_experience || "Experience not specified",
+          resumeUrl: match.metadata.download_url,
+        }));
+
+        return {
+          matches: transformedMatches,
+          message: `Great! I found ${matches.length} excellent candidate${matches.length > 1 ? 's' : ''} matching your requirements.`,
+        };
+      } 
+      // Scenario 2: No results found
+      else if (data.message && data.message.includes("No results found")) {
         return {
           isEmpty: true,
-          message: `No candidates found matching your criteria for "${data.supervisor_response.original_query}". Try adjusting your search parameters or contact us for more specific requirements.`,
-          supervisorData: data.supervisor_response,
+          message: "I couldn't find any candidates matching your specific criteria. Try adjusting your search parameters or providing different skills/requirements.",
         };
       }
-
-      // Transform the data to match your component's expected format
-      const transformedMatches = matches.map((match, index) => ({
-        id: match.id,
-        metadata: {
-          name: match.metadata.full_name || `Candidate ${index + 1}`,
-          email: match.metadata.email,
-          phone: match.metadata.phone_number,
-          location: match.metadata.location,
-          education: match.metadata.education || "Information not available",
-          skills: Array.isArray(match.metadata.skills)
-            ? match.metadata.skills
-            : [],
-          relevance_score: match.score,
-          download_url: match.metadata.download_url,
-          job_title: match.metadata.job_title,
-          summary: match.metadata.summary,
-          linkedin: match.metadata.linkedin,
-          filename: match.metadata.filename,
-        },
-        experience:
-          match.metadata.total_experience || "Experience not specified",
-        resumeUrl: match.metadata.download_url, // For the "View" button
-      }));
-
-      console.log("Transformed matches:", transformedMatches); // Debug log
-      return {
-        matches: transformedMatches,
-        supervisorData: data.supervisor_response,
-        rankingData: data.ranking_pipeline_response,
-      };
+      // Scenario 3: Supervisor message (invalid query)
+      else if (data.message === "Follow-up or pre-handled case.") {
+        throw new Error("This query is beyond the scope of this application. Let's discuss about candidate requirements for skills or share job reference number you need candidates for.");
+      } 
+      // Handle case where no resumes were generated (unrelated query)
+      else if (data.supervisor_message) {
+        throw new Error(data.supervisor_message);
+      } 
+      // Fallback for unexpected response format
+      else {
+        throw new Error("I'm having trouble processing your request. Could you please rephrase your query?");
+      }
     } catch (error) {
       console.error("Error fetching resumes:", error);
       throw error;
@@ -316,6 +425,18 @@ const ResumeSearchChatBot = () => {
     const currentInput = inputValue.current.trim();
     if (!currentInput || isLoading) return;
 
+    // Check if session is initialized
+    if (!threadId) {
+      const errorMessage = {
+        id: Date.now(),
+        type: "bot",
+        content: "Please wait while I initialize the session, or refresh the page if this persists.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      return;
+    }
+
     const userMessage = {
       id: Date.now(),
       type: "user",
@@ -354,38 +475,20 @@ const ResumeSearchChatBot = () => {
         };
       } else if (apiResponse.matches && apiResponse.matches.length > 0) {
         // Successful search with results
-        const count = apiResponse.matches.length;
-        const skillsFound = apiResponse.supervisorData?.skill_required || [];
-        const originalQuery =
-          apiResponse.supervisorData?.original_query || currentInput;
-
-        let content = `Great! I found ${count} excellent candidate${
-          count > 1 ? "s" : ""
-        } matching your criteria for "${originalQuery}".`;
-
-        if (skillsFound.length > 0) {
-          content += ` Key skills: ${skillsFound.join(", ")}.`;
-        }
-
-        content += ` Here are the top results, ranked by relevance:`;
-
         botMessage = {
           id: botMessageId,
           type: "bot",
-          content: content,
+          content: apiResponse.message + " Here are the top results, ranked by relevance:",
           resumes: apiResponse.matches,
           timestamp: new Date(),
           shouldType: true,
-          supervisorData: apiResponse.supervisorData,
-          rankingData: apiResponse.rankingData,
         };
       } else {
         // Fallback for unexpected response structure
         botMessage = {
           id: botMessageId,
           type: "bot",
-          content:
-            "I received a response but couldn't process the results. Please try rephrasing your query.",
+          content: "I received a response but couldn't process the results. Please try rephrasing your query.",
           timestamp: new Date(),
           shouldType: true,
         };
@@ -393,8 +496,7 @@ const ResumeSearchChatBot = () => {
 
       setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
-      let errorMessage =
-        "Sorry, I encountered an error while searching for resumes. Please try again.";
+      let errorMessage = "Sorry, I encountered an error while searching for resumes. Please try again.";
 
       // Use the specific error message if it's from our API validation
       if (error.message && !error.message.includes("fetch")) {
