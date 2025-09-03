@@ -9,6 +9,7 @@ import EmailModal from "@/components/custom/EmailModal";
 import MeetingModal from "@/components/custom/MeetingModal";
 import BulkActionsModal from "@/components/custom/BulkActionsModal";
 import JobDetailsComponent from "@/components/custom/JobDetailsComponent";
+import JobCard from "@/components/custom/JobCard";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -95,27 +96,33 @@ const ResumeSearchChatBot = () => {
   useEffect(() => {
     if (userRole && messages.length === 0) {
       let initialMessage = "";
-      
+
       switch (userRole) {
         case "HM": // Hiring Manager
-          initialMessage = "Hello! I'm your AI-powered job description assistant. I can help you create comprehensive job descriptions and find the right candidates. For example, try: 'Create a JD for a Senior React Developer' or 'I need a job description for a Python engineer with 3+ years experience'.";
+          initialMessage =
+            "Hello! I'm your AI-powered job description assistant. I can help you create comprehensive job descriptions and find the right candidates. For example, try: 'Create a JD for a Senior React Developer' or 'I need a job description for a Python engineer with 3+ years experience'.";
           break;
         case "R": // Recruiter
-          initialMessage = "Hello! I'm your AI-powered resume search assistant. Tell me what kind of candidates you're looking for and I'll scan through thousands of resumes to find the best matches. For example: 'I want 10 React developers' or 'Find me 5 Python engineers with 3+ years experience'.";
+          initialMessage =
+            "Hello! I'm your AI-powered resume search assistant. Tell me what kind of candidates you're looking for and I'll scan through thousands of resumes to find the best matches. For example: 'I want 10 React developers' or 'Find me 5 Python engineers with 3+ years experience'.";
           break;
         case "C": // Candidate
-          initialMessage = "Hello! I'm your AI assistant. I can help you with various queries related to your job search and career development. Feel free to ask me anything!";
+          initialMessage =
+            "Hello! I'm your AI assistant. I can help you with various queries related to your job search and career development. Feel free to ask me anything!";
           break;
         default:
-          initialMessage = "Hello! I'm your AI assistant. How can I help you today?";
+          initialMessage =
+            "Hello! I'm your AI assistant. How can I help you today?";
       }
 
-      setMessages([{
-        id: 1,
-        type: "bot",
-        content: initialMessage,
-        timestamp: new Date(),
-      }]);
+      setMessages([
+        {
+          id: 1,
+          type: "bot",
+          content: initialMessage,
+          timestamp: new Date(),
+        },
+      ]);
       setCompletedAnimations(new Set([1]));
     }
   }, [userRole, messages.length]);
@@ -127,44 +134,50 @@ const ResumeSearchChatBot = () => {
     const cleanupSession = () => {
       if (threadId) {
         console.log("Cleaning up session with thread_id:", threadId);
-        
+
         // Use navigator.sendBeacon for reliable cleanup when the page is unloading
         const data = new FormData();
-        data.append('thread_id', threadId);
-        
+        data.append("thread_id", threadId);
+
         console.log("FormData entries:");
         for (const [key, value] of data.entries()) {
           console.log(`${key}: ${value}`);
         }
-        
+
         // Test with our test endpoint first
         if (navigator.sendBeacon) {
           console.log("Using sendBeacon...");
-          const testSuccess = navigator.sendBeacon('/api/test-cleanup', data);
+          const testSuccess = navigator.sendBeacon("/api/test-cleanup", data);
           console.log("Test sendBeacon result:", testSuccess);
-          
-          const cleanupSuccess = navigator.sendBeacon('/api/session/cleanup', data);
+
+          const cleanupSuccess = navigator.sendBeacon(
+            "/api/session/cleanup",
+            data
+          );
           console.log("Cleanup sendBeacon result:", cleanupSuccess);
         } else {
           console.log("Using fetch fallback...");
           // Synchronous fallback for older browsers
-          fetch('/api/test-cleanup', {
-            method: 'POST',
+          fetch("/api/test-cleanup", {
+            method: "POST",
             body: data,
-            keepalive: true
-          }).then(response => {
-            console.log("Test fetch response:", response.status);
-            return response.json();
-          }).then(data => {
-            console.log("Test fetch data:", data);
-          }).catch(err => {
-            console.log("Test fetch error:", err);
-          });
-          
-          fetch('/api/session/cleanup', {
-            method: 'POST',
+            keepalive: true,
+          })
+            .then((response) => {
+              console.log("Test fetch response:", response.status);
+              return response.json();
+            })
+            .then((data) => {
+              console.log("Test fetch data:", data);
+            })
+            .catch((err) => {
+              console.log("Test fetch error:", err);
+            });
+
+          fetch("/api/session/cleanup", {
+            method: "POST",
             body: data,
-            keepalive: true
+            keepalive: true,
           }).catch(() => {}); // Ignore errors during cleanup
         }
       }
@@ -177,19 +190,19 @@ const ResumeSearchChatBot = () => {
 
     // Handle page visibility change (tab switching, minimizing)
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
+      if (document.visibilityState === "hidden") {
         cleanupSession();
       }
     };
 
     // Add event listeners
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     // Cleanup event listeners on component unmount
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       // Also cleanup session when component unmounts
       cleanupSession();
     };
@@ -199,7 +212,6 @@ const ResumeSearchChatBot = () => {
   const initializeSession = async () => {
     setIsInitializingSession(true);
     try {
-      console.log("Initializing session...");
       const response = await fetch("/api/session", {
         method: "POST",
         headers: {
@@ -212,17 +224,20 @@ const ResumeSearchChatBot = () => {
       }
 
       const data = await response.json();
-      console.log("Session initialized:", data);
+
       setThreadId(data.thread_id);
     } catch (error) {
-      console.error("Failed to initialize session:", error);
       // Add error message to chat
-      setMessages(prev => [...prev, {
-        id: Date.now(),
-        type: "bot",
-        content: "I'm having trouble connecting to the service. Please refresh the page to try again.",
-        timestamp: new Date(),
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          type: "bot",
+          content:
+            "I'm having trouble connecting to the service. Please refresh the page to try again.",
+          timestamp: new Date(),
+        },
+      ]);
     } finally {
       setIsInitializingSession(false);
     }
@@ -323,32 +338,62 @@ const ResumeSearchChatBot = () => {
       }
 
       const data = await response.json();
-      console.log("API Response data:", data);
+      console.log("=== API Response data ===", data);
+      console.log("Has job_details?", !!data.job_details);
+      console.log("Has supervisor_message?", !!data.supervisor_message);
+      console.log("Has jobDetails?", !!data.jobDetails);
+      console.log("Has jobDetails.matches?", !!data.jobDetails?.matches);
+      console.log("Has hasJobDetails?", !!data.hasJobDetails);
+      console.log("Has message?", !!data.message);
 
       // New Scenario: Job Details Response (for Hiring Managers)
       if (data.job_details && data.supervisor_message) {
+        console.log("🔹 Taking HIRING MANAGER path");
         return {
           jobDetails: data.job_details,
           message: data.supervisor_message,
-          hasJobDetails: Object.keys(data.job_details).length > 0
+          hasJobDetails: Object.keys(data.job_details).length > 0,
         };
       }
       // Handle case where only supervisor_message is present
       else if (data.supervisor_message && !data.job_details) {
+        console.log("🔹 Taking SUPERVISOR MESSAGE ONLY path");
         return {
           message: data.supervisor_message,
-          hasJobDetails: false
+          hasJobDetails: false,
+        };
+      }
+
+      // New Scenario: Job Search Results (for Candidates)
+      if (data.jobDetails && data.jobDetails.matches && data.hasJobDetails) {
+        console.log("🔹 Taking CANDIDATE JOB SEARCH path");
+        const jobMatches = data.jobDetails.matches;
+        console.log("Job matches found:", jobMatches.length, jobMatches);
+
+        if (jobMatches.length === 0) {
+          return {
+            isEmpty: true,
+            message:
+              "I couldn't find any job openings matching your criteria. Try adjusting your search parameters or exploring different skills/locations.",
+          };
+        }
+
+        return {
+          jobs: jobMatches,
+          message: data.message,
+          hasJobs: true,
         };
       }
 
       // Scenario 1: Direct results with resumes.matches
       if (data.resumes && data.resumes.matches) {
         const matches = data.resumes.matches;
-        
+
         if (matches.length === 0) {
           return {
             isEmpty: true,
-            message: "I couldn't find any candidates matching your specific criteria. Try adjusting your search parameters or providing different skills/requirements.",
+            message:
+              "I couldn't find any candidates matching your specific criteria. Try adjusting your search parameters or providing different skills/requirements.",
           };
         }
 
@@ -361,7 +406,9 @@ const ResumeSearchChatBot = () => {
             phone: match.metadata.phone_number,
             location: match.metadata.location,
             education: match.metadata.education || "Information not available",
-            skills: Array.isArray(match.metadata.skills) ? match.metadata.skills : [],
+            skills: Array.isArray(match.metadata.skills)
+              ? match.metadata.skills
+              : [],
             relevance_score: match.score,
             download_url: match.metadata.download_url,
             job_title: match.metadata.job_title,
@@ -369,23 +416,30 @@ const ResumeSearchChatBot = () => {
             linkedin: match.metadata.linkedin,
             filename: match.metadata.filename,
           },
-          experience: match.metadata.total_experience || "Experience not specified",
+          experience:
+            match.metadata.total_experience || "Experience not specified",
           resumeUrl: match.metadata.download_url,
         }));
 
         return {
           matches: transformedMatches,
-          message: `Great! I found ${matches.length} excellent candidate${matches.length > 1 ? 's' : ''} matching your requirements.`,
+          message: `Great! I found ${matches.length} excellent candidate${
+            matches.length > 1 ? "s" : ""
+          } matching your requirements.`,
         };
-      } 
+      }
       // Scenario 1b: Fallback for old ranking_pipeline_response structure
-      else if (data.ranking_pipeline_response && data.ranking_pipeline_response.response) {
+      else if (
+        data.ranking_pipeline_response &&
+        data.ranking_pipeline_response.response
+      ) {
         const matches = data.ranking_pipeline_response.response;
-        
+
         if (matches.length === 0) {
           return {
             isEmpty: true,
-            message: "I couldn't find any candidates matching your specific criteria. Try adjusting your search parameters or providing different skills/requirements.",
+            message:
+              "I couldn't find any candidates matching your specific criteria. Try adjusting your search parameters or providing different skills/requirements.",
           };
         }
 
@@ -398,7 +452,9 @@ const ResumeSearchChatBot = () => {
             phone: match.metadata.phone_number,
             location: match.metadata.location,
             education: match.metadata.education || "Information not available",
-            skills: Array.isArray(match.metadata.skills) ? match.metadata.skills : [],
+            skills: Array.isArray(match.metadata.skills)
+              ? match.metadata.skills
+              : [],
             relevance_score: match.score,
             download_url: match.metadata.download_url,
             job_title: match.metadata.job_title,
@@ -406,33 +462,41 @@ const ResumeSearchChatBot = () => {
             linkedin: match.metadata.linkedin,
             filename: match.metadata.filename,
           },
-          experience: match.metadata.total_experience || "Experience not specified",
+          experience:
+            match.metadata.total_experience || "Experience not specified",
           resumeUrl: match.metadata.download_url,
         }));
 
         return {
           matches: transformedMatches,
-          message: `Great! I found ${matches.length} excellent candidate${matches.length > 1 ? 's' : ''} matching your requirements.`,
+          message: `Great! I found ${matches.length} excellent candidate${
+            matches.length > 1 ? "s" : ""
+          } matching your requirements.`,
         };
-      } 
+      }
       // Scenario 2: No results found
       else if (data.message && data.message.includes("No results found")) {
         return {
           isEmpty: true,
-          message: "I couldn't find any candidates matching your specific criteria. Try adjusting your search parameters or providing different skills/requirements.",
+          message:
+            "I couldn't find any candidates matching your specific criteria. Try adjusting your search parameters or providing different skills/requirements.",
         };
       }
       // Scenario 3: Supervisor message (invalid query)
       else if (data.message === "Follow-up or pre-handled case.") {
-        throw new Error("This query is beyond the scope of this application. Let's discuss about candidate requirements for skills or share job reference number you need candidates for.");
-      } 
+        throw new Error(
+          "This query is beyond the scope of this application. Let's discuss about candidate requirements for skills or share job reference number you need candidates for."
+        );
+      }
       // Handle case where no resumes were generated (unrelated query)
       else if (data.supervisor_message) {
         throw new Error(data.supervisor_message);
-      } 
+      }
       // Fallback for unexpected response format
       else {
-        throw new Error("I'm having trouble processing your request. Could you please rephrase your query?");
+        throw new Error(
+          "I'm having trouble processing your request. Could you please rephrase your query?"
+        );
       }
     } catch (error) {
       console.error("Error fetching resumes:", error);
@@ -556,7 +620,8 @@ const ResumeSearchChatBot = () => {
       const errorMessage = {
         id: Date.now(),
         type: "bot",
-        content: "Please wait while I initialize the session, or refresh the page if this persists.",
+        content:
+          "Please wait while I initialize the session, or refresh the page if this persists.",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -600,7 +665,22 @@ const ResumeSearchChatBot = () => {
           timestamp: new Date(),
           shouldType: true,
         };
-      } else if (apiResponse.message && !apiResponse.hasJobDetails && !apiResponse.matches) {
+      } else if (apiResponse.jobs && apiResponse.hasJobs) {
+        // Job search results for candidates
+        console.log("Processing job results:", apiResponse.jobs.length, "jobs");
+        botMessage = {
+          id: botMessageId,
+          type: "bot",
+          content: apiResponse.message,
+          jobs: apiResponse.jobs,
+          timestamp: new Date(),
+          shouldType: true,
+        };
+      } else if (
+        apiResponse.message &&
+        !apiResponse.hasJobDetails &&
+        !apiResponse.matches
+      ) {
         // Supervisor message only (no job details yet)
         botMessage = {
           id: botMessageId,
@@ -623,7 +703,9 @@ const ResumeSearchChatBot = () => {
         botMessage = {
           id: botMessageId,
           type: "bot",
-          content: apiResponse.message + " Here are the top results, ranked by relevance:",
+          content:
+            apiResponse.message +
+            " Here are the top results, ranked by relevance:",
           resumes: apiResponse.matches,
           timestamp: new Date(),
           shouldType: true,
@@ -633,7 +715,8 @@ const ResumeSearchChatBot = () => {
         botMessage = {
           id: botMessageId,
           type: "bot",
-          content: "I received a response but couldn't process the results. Please try rephrasing your query.",
+          content:
+            "I received a response but couldn't process the results. Please try rephrasing your query.",
           timestamp: new Date(),
           shouldType: true,
         };
@@ -641,7 +724,8 @@ const ResumeSearchChatBot = () => {
 
       setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
-      let errorMessage = "Sorry, I encountered an error while searching for resumes. Please try again.";
+      let errorMessage =
+        "Sorry, I encountered an error while searching for resumes. Please try again.";
 
       // Use the specific error message if it's from our API validation
       if (error.message && !error.message.includes("fetch")) {
@@ -811,6 +895,31 @@ const ResumeSearchChatBot = () => {
     setMessages((prev) => [...prev, successMessage]);
   };
 
+  // Handle job applications (for candidates)
+  const handleJobApply = async (jobId, jobTitle) => {
+    try {
+      // Simulate job application
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const successMessage = {
+        id: Date.now(),
+        type: "bot",
+        content: `🎉 Successfully applied to ${jobTitle}! Your application has been submitted and the hiring team will review it shortly. Good luck!`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, successMessage]);
+    } catch (error) {
+      console.error("Error applying to job:", error);
+      const errorMessage = {
+        id: Date.now(),
+        type: "bot",
+        content: `❌ Failed to apply to ${jobTitle}. Please try again later.`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-blue-50">
       {/* Enhanced Header */}
@@ -822,16 +931,22 @@ const ResumeSearchChatBot = () => {
             </div>
             <div>
               <h1 className="text-xl font-bold text-gray-900">
-                {userRole === "HM" ? "AI Job Description Assistant" : 
-                 userRole === "R" ? "AI Resume Search Assistant" : 
-                 userRole === "C" ? "AI Career Assistant" : 
-                 "AI Assistant"}
+                {userRole === "HM"
+                  ? "AI Job Description Assistant"
+                  : userRole === "R"
+                  ? "AI Resume Search Assistant"
+                  : userRole === "C"
+                  ? "AI Career Assistant"
+                  : "AI Assistant"}
               </h1>
               <p className="text-sm text-gray-600">
-                {userRole === "HM" ? "Create comprehensive job descriptions and find the right candidates" : 
-                 userRole === "R" ? "Find, enhance, and connect with perfect candidates instantly" : 
-                 userRole === "C" ? "Get help with your job search and career development" : 
-                 "How can I help you today?"}
+                {userRole === "HM"
+                  ? "Create comprehensive job descriptions and find the right candidates"
+                  : userRole === "R"
+                  ? "Find, enhance, and connect with perfect candidates instantly"
+                  : userRole === "C"
+                  ? "Get help with your job search and career development"
+                  : "How can I help you today?"}
               </p>
             </div>
           </div>
@@ -844,7 +959,9 @@ const ResumeSearchChatBot = () => {
               {userRoleLabel && (
                 <div className="flex items-center space-x-2 px-2 py-1 bg-blue-50 rounded-full">
                   <User className="w-3 h-3 text-blue-600" />
-                  <span className="text-blue-700 font-medium">{userRoleLabel}</span>
+                  <span className="text-blue-700 font-medium">
+                    {userRoleLabel}
+                  </span>
                 </div>
               )}
             </div>
@@ -870,6 +987,7 @@ const ResumeSearchChatBot = () => {
           {messages.map((message, index) => (
             <MessageComponent
               key={message.id}
+              userRole={userRole}
               message={message}
               index={index}
               completedAnimations={completedAnimations}
@@ -881,11 +999,17 @@ const ResumeSearchChatBot = () => {
               onSendEmail={handleSendEmail}
               onScheduleMeeting={handleScheduleMeeting}
               onBulkActions={handleBulkActions}
+              onJobApply={handleJobApply}
             />
           ))}
 
           {/* Enhanced Loading indicator */}
-          {isLoading && <LoadingComponent searchProgress={searchProgress} userRole={userRole} />}
+          {isLoading && (
+            <LoadingComponent
+              searchProgress={searchProgress}
+              userRole={userRole}
+            />
+          )}
           <div ref={messagesEndRef} />
         </div>
       </div>
@@ -908,10 +1032,13 @@ const ResumeSearchChatBot = () => {
                     }
                   }}
                   placeholder={
-                    userRole === "HM" ? "e.g., 'Create a JD for Senior React Developer' or 'I need a job description for Python engineer with 3+ years'" :
-                    userRole === "R" ? "e.g., 'I want 10 React developers' or 'Find me 5 Python engineers with machine learning experience'" :
-                    userRole === "C" ? "e.g., 'Help me improve my resume' or 'What skills should I learn for a React developer role?'" :
-                    "How can I help you today?"
+                    userRole === "HM"
+                      ? "e.g., 'Create a JD for Senior React Developer' or 'I need a job description for Python engineer with 3+ years'"
+                      : userRole === "R"
+                      ? "e.g., 'I want 10 React developers' or 'Find me 5 Python engineers with machine learning experience'"
+                      : userRole === "C"
+                      ? "e.g., 'Help me improve my resume' or 'What skills should I learn for a React developer role?'"
+                      : "How can I help you today?"
                   }
                   className="w-full pr-14 resize-none min-h-[56px] max-h-[120px]"
                   disabled={isLoading}

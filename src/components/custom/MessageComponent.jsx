@@ -6,6 +6,7 @@ import { User, Bot, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ResumeCard from "./ResumeCard";
 import JobDetailsComponent from "./JobDetailsComponent";
+import JobCard from "./JobCard";
 
 const TypewriterText = ({
   text,
@@ -71,7 +72,11 @@ const MessageComponent = ({
   onSendEmail,
   onScheduleMeeting,
   onBulkActions, // New prop for bulk actions
+  onJobApply, // New prop for job applications
+  userRole, // New prop for user role
 }) => {
+  console.log(userRole);
+
   return (
     <div
       className={`flex items-start space-x-4 ${
@@ -123,11 +128,56 @@ const MessageComponent = ({
             </div>
 
             {/* Job Details (for Hiring Managers) */}
-            {message.jobDetails && isTypingComplete && (
+            {message.jobDetails && isTypingComplete && userRole === "HM" && (
               <div className="mt-4">
                 <JobDetailsComponent jobDetails={message.jobDetails} />
               </div>
             )}
+
+            {/* Job Listings (for Candidates) */}
+            {userRole === "C" &&
+              message.jobDetails &&
+              message.jobDetails.matches.length > 0 &&
+              isTypingComplete && (
+                <div className="space-y-4 mt-4">
+                  <motion.div
+                    className="grid gap-4"
+                    initial="hidden"
+                    animate="visible"
+                    variants={{
+                      visible: {
+                        transition: {
+                          staggerChildren: 0.1,
+                        },
+                      },
+                    }}
+                  >
+                    {message.jobDetails.matches.map((job, jobIndex) => (
+                      <motion.div
+                        key={job.id}
+                        variants={{
+                          hidden: {
+                            opacity: 0,
+                            y: 20,
+                            scale: 0.95,
+                          },
+                          visible: {
+                            opacity: 1,
+                            y: 0,
+                            scale: 1,
+                          },
+                        }}
+                        transition={{
+                          duration: 0.4,
+                          ease: [0.4, 0, 0.2, 1],
+                        }}
+                      >
+                        <JobCard job={job} onApply={onJobApply || (() => {})} />
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                </div>
+              )}
 
             {/* Resume Results */}
             {message.resumes &&
