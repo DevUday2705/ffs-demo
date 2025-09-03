@@ -1,6 +1,6 @@
 export async function POST(req) {
     try {
-        const { query, thread_id } = await req.json();
+        const { query, thread_id, role } = await req.json();
 
         // Add validation
         if (!query || typeof query !== 'string') {
@@ -27,11 +27,24 @@ export async function POST(req) {
             );
         }
 
-        console.log("Received query:", query, "Thread ID:", thread_id);
+        if (!role || typeof role !== 'string') {
+            return new Response(
+                JSON.stringify({ error: "Role parameter is required and must be a string" }),
+                {
+                    status: 400,
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+        }
+
+        console.log("Received query:", query, "Thread ID:", thread_id, "Role:", role);
 
         const formData = new URLSearchParams();
         formData.append("query", query);
         formData.append("thread_id", thread_id);
+        formData.append("role", role);
 
         console.log("Sending to Invoke API:", formData.toString());
 

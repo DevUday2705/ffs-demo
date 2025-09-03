@@ -8,6 +8,7 @@ import LoadingComponent from "@/components/custom/LoadingComponent";
 import EmailModal from "@/components/custom/EmailModal";
 import MeetingModal from "@/components/custom/MeetingModal";
 import BulkActionsModal from "@/components/custom/BulkActionsModal";
+import JobDetailsComponent from "@/components/custom/JobDetailsComponent";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -17,17 +18,12 @@ const ResumeSearchChatBot = () => {
   // All hooks must be declared at the top level, before any conditional returns
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [userRole, setUserRole] = useState(null);
+  const [userEmail, setUserEmail] = useState(null);
+  const [userRoleLabel, setUserRoleLabel] = useState(null);
   const [threadId, setThreadId] = useState(null);
   const [isInitializingSession, setIsInitializingSession] = useState(false);
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      type: "bot",
-      content:
-        "Hello! I'm your AI-powered resume search assistant. Tell me what kind of candidates you're looking for and I'll scan through thousands of resumes to find the best matches. For example: 'I want 10 React developers' or 'Find me 5 Python engineers with 3+ years experience'.",
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [isTypingComplete, setIsTypingComplete] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [searchProgress, setSearchProgress] = useState({ stage: "", count: 0 });
@@ -70,9 +66,15 @@ const ResumeSearchChatBot = () => {
       const isLoggedIn = localStorage.getItem("isLoggedIn");
       const userToken = localStorage.getItem("userToken");
       const isAuthenticated = localStorage.getItem("isAuthenticated");
+      const storedUserRole = localStorage.getItem("userRole");
+      const storedUserEmail = localStorage.getItem("userEmail");
+      const storedUserRoleLabel = localStorage.getItem("userRoleLabel");
 
       if (isLoggedIn || userToken || isAuthenticated) {
         setIsAuthenticated(true);
+        setUserRole(storedUserRole);
+        setUserEmail(storedUserEmail);
+        setUserRoleLabel(storedUserRoleLabel);
       } else {
         router.push("/");
       }
@@ -88,6 +90,110 @@ const ResumeSearchChatBot = () => {
       initializeSession();
     }
   }, [isAuthenticated, threadId, isInitializingSession]);
+
+  // Set initial message based on user role
+  useEffect(() => {
+    if (userRole && messages.length === 0) {
+      let initialMessage = "";
+      
+      switch (userRole) {
+        case "HM": // Hiring Manager
+          initialMessage = "Hello! I'm your AI-powered job description assistant. I can help you create comprehensive job descriptions and find the right candidates. For example, try: 'Create a JD for a Senior React Developer' or 'I need a job description for a Python engineer with 3+ years experience'.";
+          break;
+        case "R": // Recruiter
+          initialMessage = "Hello! I'm your AI-powered resume search assistant. Tell me what kind of candidates you're looking for and I'll scan through thousands of resumes to find the best matches. For example: 'I want 10 React developers' or 'Find me 5 Python engineers with 3+ years experience'.";
+          break;
+        case "C": // Candidate
+          initialMessage = "Hello! I'm your AI assistant. I can help you with various queries related to your job search and career development. Feel free to ask me anything!";
+          break;
+        default:
+          initialMessage = "Hello! I'm your AI assistant. How can I help you today?";
+      }
+
+      setMessages([{
+        id: 1,
+        type: "bot",
+        content: initialMessage,
+        timestamp: new Date(),
+      }]);
+      setCompletedAnimations(new Set([1]));
+    }
+  }, [userRole, messages.length]);
+
+  // Session cleanup on window close
+  useEffect(() => {
+    if (!threadId) return; // Only set up cleanup if we have a session
+
+    const cleanupSession = () => {
+      if (threadId) {
+        console.log("Cleaning up session with thread_id:", threadId);
+        
+        // Use navigator.sendBeacon for reliable cleanup when the page is unloading
+        const data = new FormData();
+        data.append('thread_id', threadId);
+        
+        console.log("FormData entries:");
+        for (const [key, value] of data.entries()) {
+          console.log(`${key}: ${value}`);
+        }
+        
+        // Test with our test endpoint first
+        if (navigator.sendBeacon) {
+          console.log("Using sendBeacon...");
+          const testSuccess = navigator.sendBeacon('/api/test-cleanup', data);
+          console.log("Test sendBeacon result:", testSuccess);
+          
+          const cleanupSuccess = navigator.sendBeacon('/api/session/cleanup', data);
+          console.log("Cleanup sendBeacon result:", cleanupSuccess);
+        } else {
+          console.log("Using fetch fallback...");
+          // Synchronous fallback for older browsers
+          fetch('/api/test-cleanup', {
+            method: 'POST',
+            body: data,
+            keepalive: true
+          }).then(response => {
+            console.log("Test fetch response:", response.status);
+            return response.json();
+          }).then(data => {
+            console.log("Test fetch data:", data);
+          }).catch(err => {
+            console.log("Test fetch error:", err);
+          });
+          
+          fetch('/api/session/cleanup', {
+            method: 'POST',
+            body: data,
+            keepalive: true
+          }).catch(() => {}); // Ignore errors during cleanup
+        }
+      }
+    };
+
+    // Handle tab/window close
+    const handleBeforeUnload = (event) => {
+      cleanupSession();
+    };
+
+    // Handle page visibility change (tab switching, minimizing)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        cleanupSession();
+      }
+    };
+
+    // Add event listeners
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Cleanup event listeners on component unmount
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      // Also cleanup session when component unmounts
+      cleanupSession();
+    };
+  }, [threadId]);
 
   // Initialize session with the API
   const initializeSession = async () => {
@@ -148,6 +254,9 @@ const ResumeSearchChatBot = () => {
     localStorage.removeItem("userData");
     localStorage.removeItem("isAuthenticated");
     localStorage.removeItem("userLoginId");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("userRoleLabel");
     router.push("/");
   };
 
@@ -203,6 +312,7 @@ const ResumeSearchChatBot = () => {
         body: JSON.stringify({
           query: query,
           thread_id: threadId,
+          role: userRole,
         }),
       });
 
@@ -214,6 +324,22 @@ const ResumeSearchChatBot = () => {
 
       const data = await response.json();
       console.log("API Response data:", data);
+
+      // New Scenario: Job Details Response (for Hiring Managers)
+      if (data.job_details && data.supervisor_message) {
+        return {
+          jobDetails: data.job_details,
+          message: data.supervisor_message,
+          hasJobDetails: Object.keys(data.job_details).length > 0
+        };
+      }
+      // Handle case where only supervisor_message is present
+      else if (data.supervisor_message && !data.job_details) {
+        return {
+          message: data.supervisor_message,
+          hasJobDetails: false
+        };
+      }
 
       // Scenario 1: Direct results with resumes.matches
       if (data.resumes && data.resumes.matches) {
@@ -317,9 +443,9 @@ const ResumeSearchChatBot = () => {
   // Also update your searchResumes function to handle errors better
   const searchResumes = async (query) => {
     const stages = [
-      { stage: "Initializing search...", delay: 500 },
-      { stage: "Fetching resumes from database...", delay: 800 },
-      { stage: "Scanning resumes database...", delay: 600, count: 1247 },
+      { stage: "Initializing...", delay: 500 },
+      { stage: "Fetching data...", delay: 800 },
+      { stage: "Analyzing data...", delay: 600, count: 1247 },
     ];
 
     // Start the API call early
@@ -357,17 +483,17 @@ const ResumeSearchChatBot = () => {
       if (!apiCompleted) {
         const remainingStages = [
           {
-            stage: "Analyzing skills and experience...",
+            stage: "Processing information...",
             delay: 400,
             count: 892,
           },
           {
-            stage: "Applying AI matching algorithms...",
+            stage: "Applying AI algorithms...",
             delay: 300,
             count: 156,
           },
           {
-            stage: "Ranking and shortlisting candidates...",
+            stage: "Generating results...",
             delay: 200,
             count: 25,
           },
@@ -398,7 +524,7 @@ const ResumeSearchChatBot = () => {
 
       // Final stage - ensure we have the data
       if (!apiCompleted) {
-        setSearchProgress({ stage: "Finalizing results...", count: 0 });
+        setSearchProgress({ stage: "Finalizing...", count: 0 });
         try {
           resumeData = await apiCallPromise;
         } catch (error) {
@@ -407,7 +533,7 @@ const ResumeSearchChatBot = () => {
         }
       } else {
         // Show brief finalizing stage even if API completed early
-        setSearchProgress({ stage: "Finalizing results...", count: 0 });
+        setSearchProgress({ stage: "Finalizing...", count: 0 });
         await new Promise((resolve) => setTimeout(resolve, 300));
       }
 
@@ -464,7 +590,26 @@ const ResumeSearchChatBot = () => {
       let botMessage;
 
       // Handle different response types
-      if (apiResponse.isEmpty) {
+      if (apiResponse.jobDetails && apiResponse.hasJobDetails) {
+        // Job details response with job data
+        botMessage = {
+          id: botMessageId,
+          type: "bot",
+          content: apiResponse.message,
+          jobDetails: apiResponse.jobDetails,
+          timestamp: new Date(),
+          shouldType: true,
+        };
+      } else if (apiResponse.message && !apiResponse.hasJobDetails && !apiResponse.matches) {
+        // Supervisor message only (no job details yet)
+        botMessage = {
+          id: botMessageId,
+          type: "bot",
+          content: apiResponse.message,
+          timestamp: new Date(),
+          shouldType: true,
+        };
+      } else if (apiResponse.isEmpty) {
         // No matches found but query was valid
         botMessage = {
           id: botMessageId,
@@ -677,17 +822,31 @@ const ResumeSearchChatBot = () => {
             </div>
             <div>
               <h1 className="text-xl font-bold text-gray-900">
-                AI Resume Search Assistant
+                {userRole === "HM" ? "AI Job Description Assistant" : 
+                 userRole === "R" ? "AI Resume Search Assistant" : 
+                 userRole === "C" ? "AI Career Assistant" : 
+                 "AI Assistant"}
               </h1>
               <p className="text-sm text-gray-600">
-                Find, enhance, and connect with perfect candidates instantly
+                {userRole === "HM" ? "Create comprehensive job descriptions and find the right candidates" : 
+                 userRole === "R" ? "Find, enhance, and connect with perfect candidates instantly" : 
+                 userRole === "C" ? "Get help with your job search and career development" : 
+                 "How can I help you today?"}
               </p>
             </div>
           </div>
           <div className="flex items-center space-x-4">
-            <div className="hidden md:flex items-center space-x-2 text-sm text-gray-500">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span>AI Powered</span>
+            <div className="hidden md:flex items-center space-x-4 text-sm text-gray-500">
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span>AI Powered</span>
+              </div>
+              {userRoleLabel && (
+                <div className="flex items-center space-x-2 px-2 py-1 bg-blue-50 rounded-full">
+                  <User className="w-3 h-3 text-blue-600" />
+                  <span className="text-blue-700 font-medium">{userRoleLabel}</span>
+                </div>
+              )}
             </div>
             <Button
               variant="outline"
@@ -726,7 +885,7 @@ const ResumeSearchChatBot = () => {
           ))}
 
           {/* Enhanced Loading indicator */}
-          {isLoading && <LoadingComponent searchProgress={searchProgress} />}
+          {isLoading && <LoadingComponent searchProgress={searchProgress} userRole={userRole} />}
           <div ref={messagesEndRef} />
         </div>
       </div>
@@ -748,7 +907,12 @@ const ResumeSearchChatBot = () => {
                       handleSubmit(e);
                     }
                   }}
-                  placeholder="e.g., 'I want 10 React developers' or 'Find me 5 Python engineers with machine learning experience'"
+                  placeholder={
+                    userRole === "HM" ? "e.g., 'Create a JD for Senior React Developer' or 'I need a job description for Python engineer with 3+ years'" :
+                    userRole === "R" ? "e.g., 'I want 10 React developers' or 'Find me 5 Python engineers with machine learning experience'" :
+                    userRole === "C" ? "e.g., 'Help me improve my resume' or 'What skills should I learn for a React developer role?'" :
+                    "How can I help you today?"
+                  }
                   className="w-full pr-14 resize-none min-h-[56px] max-h-[120px]"
                   disabled={isLoading}
                   onInput={(e) => {

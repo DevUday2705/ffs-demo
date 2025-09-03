@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { User, Bot, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ResumeCard from "./ResumeCard";
+import JobDetailsComponent from "./JobDetailsComponent";
 
 const TypewriterText = ({
   text,
@@ -120,6 +121,13 @@ const MessageComponent = ({
                 </p>
               )}
             </div>
+
+            {/* Job Details (for Hiring Managers) */}
+            {message.jobDetails && isTypingComplete && (
+              <div className="mt-4">
+                <JobDetailsComponent jobDetails={message.jobDetails} />
+              </div>
+            )}
 
             {/* Resume Results */}
             {message.resumes &&

@@ -47,15 +47,27 @@ const LoginPage = () => {
       return;
     }
 
-    // Demo credentials - in real app, this would be an API call
-    if (formData.username === "admin" && formData.password === "password") {
+    // Define valid roles and their mappings
+    const validUsers = {
+      "manager@gmail.com": { role: "HM", roleLabel: "Hiring Manager" },
+      "recruiter@gmail.com": { role: "R", roleLabel: "Recruiter" },
+      "candidate@gmail.com": { role: "C", roleLabel: "Candidate" }
+    };
+
+    // Check if username is valid and password is correct
+    if (validUsers[formData.username] && formData.password === "password") {
+      const userInfo = validUsers[formData.username];
+      
       // Simulate loading
       setTimeout(() => {
         localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("userEmail", formData.username);
+        localStorage.setItem("userRole", userInfo.role);
+        localStorage.setItem("userRoleLabel", userInfo.roleLabel);
         router.push("/chatbot");
       }, 1500);
     } else {
-      setError("Invalid credentials. Use admin/password for demo.");
+      setError("Invalid credentials. Use manager@gmail.com, recruiter@gmail.com, or candidate@gmail.com with password 'password'.");
       setIsLoading(false);
     }
   };
@@ -177,18 +189,18 @@ const LoginPage = () => {
                     htmlFor="username"
                     className="text-sm font-medium text-gray-700"
                   >
-                    Username
+                    Email
                   </Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <Input
                       id="username"
-                      type="text"
+                      type="email"
                       value={formData.username}
                       onChange={(e) =>
                         setFormData({ ...formData, username: e.target.value })
                       }
-                      placeholder="Enter your username"
+                      placeholder="Enter your email"
                       className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                     />
                   </div>
@@ -247,8 +259,10 @@ const LoginPage = () => {
                   </div>
                   <div className="text-xs space-y-1 ml-6">
                     <div>
-                      Username:{" "}
-                      <code className="bg-blue-100 px-1 rounded">admin</code>
+                      Emails:{" "}
+                      <code className="bg-blue-100 px-1 rounded">manager@gmail.com</code>,{" "}
+                      <code className="bg-blue-100 px-1 rounded">recruiter@gmail.com</code>,{" "}
+                      <code className="bg-blue-100 px-1 rounded">candidate@gmail.com</code>
                     </div>
                     <div>
                       Password:{" "}

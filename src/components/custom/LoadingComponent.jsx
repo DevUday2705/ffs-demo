@@ -2,7 +2,41 @@
 
 import { Bot, Loader2 } from "lucide-react";
 
-const LoadingComponent = ({ searchProgress }) => {
+const LoadingComponent = ({ searchProgress, userRole }) => {
+  // Generic loading messages that work for all roles
+  const getGenericMessage = (stage) => {
+    if (!stage) return "Processing your request...";
+    
+    // Map resume-specific stages to generic ones
+    const genericStageMap = {
+      "Initializing search...": "Initializing...",
+      "Fetching resumes from database...": "Fetching data...",
+      "Scanning resumes database...": "Analyzing data...",
+      "Analyzing skills and experience...": "Processing information...",
+      "Applying AI matching algorithms...": "Applying AI algorithms...",
+      "Ranking and shortlisting candidates...": "Generating results...",
+      "Finalizing results...": "Finalizing...",
+    };
+
+    return genericStageMap[stage] || stage;
+  };
+
+  // Role-specific count messages
+  const getCountMessage = (count, role) => {
+    if (count <= 0) return null;
+    
+    switch (role) {
+      case "HM": // Hiring Manager
+        return `Processed ${count.toLocaleString()} records`;
+      case "R": // Recruiter
+        return `Processed ${count.toLocaleString()} resumes`;
+      case "C": // Candidate
+        return `Processed ${count.toLocaleString()} records`;
+      default:
+        return `Processed ${count.toLocaleString()} items`;
+    }
+  };
+
   return (
     <div className="flex items-start space-x-4 animate-in slide-in-from-bottom-4 duration-300">
       <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -14,11 +48,11 @@ const LoadingComponent = ({ searchProgress }) => {
             <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
             <div>
               <p className="text-sm font-semibold text-gray-900">
-                {searchProgress.stage || "Processing your request..."}
+                {getGenericMessage(searchProgress.stage)}
               </p>
               {searchProgress.count > 0 && (
                 <p className="text-xs text-gray-600 mt-1">
-                  Processed {searchProgress.count.toLocaleString()} resumes
+                  {getCountMessage(searchProgress.count, userRole)}
                 </p>
               )}
             </div>
