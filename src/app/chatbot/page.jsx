@@ -272,7 +272,7 @@ const ResumeSearchChatBot = () => {
     localStorage.removeItem("userRole");
     localStorage.removeItem("userEmail");
     localStorage.removeItem("userRoleLabel");
-    router.push("/");
+    router.push("/login");
   };
 
   // Mock resume data - replace with actual API response
@@ -926,10 +926,15 @@ const ResumeSearchChatBot = () => {
       <div className="bg-white border-b border-gray-200 px-6 py-5 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Bot className="w-6 h-6 text-white" />
+            <div className="w-32  flex items-center justify-center ">
+              <img
+                src="/logo.webp"
+                alt="Description"
+                className="w-full h-full"
+              />
             </div>
             <div>
+              <div></div>
               <h1 className="text-xl font-bold text-gray-900">
                 {userRole === "HM"
                   ? "AI Job Description Assistant"

@@ -51,13 +51,13 @@ const LoginPage = () => {
     const validUsers = {
       "manager@gmail.com": { role: "HM", roleLabel: "Hiring Manager" },
       "recruiter@gmail.com": { role: "R", roleLabel: "Recruiter" },
-      "candidate@gmail.com": { role: "C", roleLabel: "Candidate" }
+      "candidate@gmail.com": { role: "C", roleLabel: "Candidate" },
     };
 
     // Check if username is valid and password is correct
     if (validUsers[formData.username] && formData.password === "password") {
       const userInfo = validUsers[formData.username];
-      
+
       // Simulate loading
       setTimeout(() => {
         localStorage.setItem("isLoggedIn", "true");
@@ -67,7 +67,9 @@ const LoginPage = () => {
         router.push("/chatbot");
       }, 1500);
     } else {
-      setError("Invalid credentials. Use manager@gmail.com, recruiter@gmail.com, or candidate@gmail.com with password 'password'.");
+      setError(
+        "Invalid credentials. Use manager@gmail.com, recruiter@gmail.com, or candidate@gmail.com with password 'password'."
+      );
       setIsLoading(false);
     }
   };
@@ -108,7 +110,7 @@ const LoginPage = () => {
               </div>
               <div>
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  Resume AI
+                  RecAIDX
                 </h1>
                 <p className="text-gray-600 text-sm">
                   Intelligent Talent Discovery
@@ -260,14 +262,22 @@ const LoginPage = () => {
                   <div className="text-xs space-y-1 ml-6">
                     <div>
                       Emails:{" "}
-                      <code className="bg-blue-100 px-1 rounded">manager@gmail.com</code>,{" "}
-                      <code className="bg-blue-100 px-1 rounded">recruiter@gmail.com</code>,{" "}
-                      <code className="bg-blue-100 px-1 rounded">candidate@gmail.com</code>
+                      <code className="bg-blue-100 px-1 rounded">
+                        manager@gmail.com
+                      </code>
+                      ,{" "}
+                      <code className="bg-blue-100 px-1 rounded">
+                        recruiter@gmail.com
+                      </code>
+                      ,{" "}
+                      <code className="bg-blue-100 px-1 rounded">
+                        candidate@gmail.com
+                      </code>
                     </div>
-                    <div>
+                    {/* <div>
                       Password:{" "}
                       <code className="bg-blue-100 px-1 rounded">password</code>
-                    </div>
+                    </div> */}
                   </div>
                 </div>
 
