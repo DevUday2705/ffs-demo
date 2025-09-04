@@ -113,13 +113,13 @@ const LoginPage = () => {
                   RecDXAI
                 </h1>
                 <p className="text-gray-600 text-sm">
-                  Intelligent Talent Discovery
+                  AI-powered Recruitment & Onboarding.
                 </p>
               </div>
             </div>
             <p className="text-gray-700 text-lg leading-relaxed max-w-md">
-              Transform your hiring process with AI-powered resume search and
-              candidate matching.
+              Transform your hiring process with AI-powered tool for recruitment
+              and onboarding.
             </p>
           </div>
 
