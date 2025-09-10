@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Send, Bot, User, Loader2, LogOut } from "lucide-react";
+import { Send, Bot, User, Loader2, LogOut, Upload, FileText, X } from "lucide-react";
 import { motion } from "framer-motion";
 import MessageComponent from "@/components/custom/MessageComponent";
 import LoadingComponent from "@/components/custom/LoadingComponent";
@@ -44,6 +44,11 @@ const ResumeSearchChatBot = () => {
     isOpen: false,
     candidates: [],
   });
+
+  // File upload state
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isFileUploading, setIsFileUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -920,6 +925,104 @@ const ResumeSearchChatBot = () => {
     }
   };
 
+  // File upload handlers
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Check file type (optional - you can restrict to specific types)
+      const allowedTypes = ['.pdf', '.doc', '.docx', '.txt'];
+      const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+      
+      if (allowedTypes.includes(fileExtension)) {
+        setSelectedFile(file);
+      } else {
+        alert('Please select a valid file type (.pdf, .doc, .docx, .txt)');
+        event.target.value = ''; // Reset file input
+      }
+    }
+  };
+
+  const handleFileUpload = async () => {
+    if (!selectedFile || !threadId) return;
+
+    setIsFileUploading(true);
+    setIsLoading(true);
+    setSearchProgress({ stage: "", count: 0 });
+
+    // Add user message showing file upload
+    const userMessage = {
+      id: Date.now(),
+      type: "user",
+      content: `📎 Uploaded: ${selectedFile.name}`,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMessage]);
+
+    try {
+      // Simulate file processing and then call the API
+      const apiResponse = await searchResumes("looking for python candidates");
+      console.log("File upload API Response:", apiResponse);
+
+      const botMessageId = Date.now() + 1;
+      let botMessage;
+
+      // Handle the response similar to regular search
+      if (apiResponse.matches && apiResponse.matches.length > 0) {
+        botMessage = {
+          id: botMessageId,
+          type: "bot",
+          content: `✅ Successfully processed your resume! Based on the skills and experience in ${selectedFile.name}, here are matching candidates:`,
+          resumes: apiResponse.matches,
+          timestamp: new Date(),
+          shouldType: true,
+        };
+      } else if (apiResponse.isEmpty) {
+        botMessage = {
+          id: botMessageId,
+          type: "bot",
+          content: `✅ Processed ${selectedFile.name} successfully, but I couldn't find candidates matching the requirements from your resume. Try uploading a different resume or search manually.`,
+          timestamp: new Date(),
+          shouldType: true,
+        };
+      } else {
+        botMessage = {
+          id: botMessageId,
+          type: "bot",
+          content: `✅ Successfully processed ${selectedFile.name}. ${apiResponse.message || 'Here are the results based on your uploaded resume.'}`,
+          timestamp: new Date(),
+          shouldType: true,
+        };
+      }
+
+      setMessages((prev) => [...prev, botMessage]);
+    } catch (error) {
+      console.error("File upload error:", error);
+      const errorMessage = {
+        id: Date.now() + 1,
+        type: "bot",
+        content: `❌ Failed to process ${selectedFile.name}. Please try again or search manually.`,
+        timestamp: new Date(),
+        shouldType: true,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+      setIsFileUploading(false);
+      setSearchProgress({ stage: "", count: 0 });
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-blue-50">
       {/* Enhanced Header */}
@@ -1022,6 +1125,50 @@ const ResumeSearchChatBot = () => {
       {/* Enhanced Input Form */}
       <div className="bg-white border-t border-gray-200 px-4 py-5 shadow-lg">
         <div className="max-w-5xl mx-auto">
+          {/* File Upload Section for Recruiters */}
+          {userRole === "R" && selectedFile && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-900">{selectedFile.name}</p>
+                    <p className="text-xs text-blue-600">Ready to process resume</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    onClick={handleFileUpload}
+                    disabled={isFileUploading || isLoading}
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {isFileUploading ? (
+                      <div className="flex items-center space-x-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Processing...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <Upload className="w-4 h-4" />
+                        <span>Process Resume</span>
+                      </div>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={handleRemoveFile}
+                    disabled={isFileUploading || isLoading}
+                    size="sm"
+                    variant="outline"
+                    className="text-red-600 border-red-200 hover:bg-red-50"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="relative">
             <div className="flex items-end space-x-4">
               <div className="flex-1 relative">
@@ -1054,23 +1201,48 @@ const ResumeSearchChatBot = () => {
                       Math.min(e.target.scrollHeight, 120) + "px";
                   }}
                 />
-                <Button
-                  onClick={handleSubmit}
-                  disabled={isLoading}
-                  size="sm"
-                  className="absolute right-3 bottom-3 h-10 w-10 p-0 bg-slate-600 hover:bg-slate-700 text-white"
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <Send className="w-5 h-5" />
+                <div className="absolute right-3 bottom-3 flex items-center space-x-2">
+                  {/* File Upload Button for Recruiters */}
+                  {userRole === "R" && (
+                    <>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".pdf,.doc,.docx,.txt"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+                      <Button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isLoading || isFileUploading}
+                        size="sm"
+                        variant="outline"
+                        className="h-10 w-10 p-0 border-gray-300 hover:border-blue-400 hover:bg-blue-50"
+                      >
+                        <Upload className="w-5 h-5 text-gray-600" />
+                      </Button>
+                    </>
                   )}
-                </Button>
+                  
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={isLoading}
+                    size="sm"
+                    className="h-10 w-10 p-0 bg-slate-600 hover:bg-slate-700 text-white"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Send className="w-5 h-5" />
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
           <p className="text-xs text-gray-500 text-center mt-3">
-            Press Enter to search • Shift + Enter for new line • Powered by AI
+            Press Enter to search • Shift + Enter for new line • 
+            {userRole === "R" && " Upload resume to find matching candidates •"} Powered by AI
           </p>
         </div>
       </div>
