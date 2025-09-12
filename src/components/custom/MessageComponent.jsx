@@ -132,7 +132,7 @@ const MessageComponent = ({
             {/* Job Details (for Hiring Managers) */}
             {message.jobDetails && isTypingComplete && userRole === "HM" && (
               <div className="mt-4">
-                <JobDetailsComponent 
+                <JobDetailsComponent
                   jobDetails={message.jobDetails}
                   onViewJR={onViewJR}
                   onCopyJR={onCopyJR}

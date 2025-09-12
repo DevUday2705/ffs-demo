@@ -1,7 +1,16 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Send, Bot, User, Loader2, LogOut, Upload, FileText, X } from "lucide-react";
+import {
+  Send,
+  Bot,
+  User,
+  Loader2,
+  LogOut,
+  Upload,
+  FileText,
+  X,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import MessageComponent from "@/components/custom/MessageComponent";
@@ -938,20 +947,25 @@ const ResumeSearchChatBot = () => {
 
   const handleCopyJR = (jobDetails) => {
     // Generate JR link based on job title or ID
-    const jrId = jobDetails["Job Title"]?.replace(/\s+/g, '-').toLowerCase() || 'jr-123456';
+    const jrId =
+      jobDetails["Job Title"]?.replace(/\s+/g, "-").toLowerCase() ||
+      "jr-123456";
     const jrLink = `${window.location.origin}/job-requisition/${jrId}`;
-    
-    navigator.clipboard.writeText(jrLink).then(() => {
-      toast.success("JR Link Copied!", {
-        description: "Job requisition link has been copied to clipboard.",
-        duration: 3000,
+
+    navigator.clipboard
+      .writeText(jrLink)
+      .then(() => {
+        toast.success("JR Link Copied!", {
+          description: "Job requisition link has been copied to clipboard.",
+          duration: 3000,
+        });
+      })
+      .catch(() => {
+        toast.error("Copy Failed", {
+          description: "Failed to copy link. Please try again.",
+          duration: 3000,
+        });
       });
-    }).catch(() => {
-      toast.error("Copy Failed", {
-        description: "Failed to copy link. Please try again.",
-        duration: 3000,
-      });
-    });
   };
 
   // File upload handlers
@@ -959,14 +973,14 @@ const ResumeSearchChatBot = () => {
     const file = event.target.files[0];
     if (file) {
       // Check file type (optional - you can restrict to specific types)
-      const allowedTypes = ['.pdf', '.doc', '.docx', '.txt'];
-      const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
-      
+      const allowedTypes = [".pdf", ".doc", ".docx", ".txt"];
+      const fileExtension = "." + file.name.split(".").pop().toLowerCase();
+
       if (allowedTypes.includes(fileExtension)) {
         setSelectedFile(file);
       } else {
-        alert('Please select a valid file type (.pdf, .doc, .docx, .txt)');
-        event.target.value = ''; // Reset file input
+        alert("Please select a valid file type (.pdf, .doc, .docx, .txt)");
+        event.target.value = ""; // Reset file input
       }
     }
   };
@@ -1017,7 +1031,10 @@ const ResumeSearchChatBot = () => {
         botMessage = {
           id: botMessageId,
           type: "bot",
-          content: `✅ Successfully processed ${selectedFile.name}. ${apiResponse.message || 'Here are the results based on your uploaded resume.'}`,
+          content: `✅ Successfully processed ${selectedFile.name}. ${
+            apiResponse.message ||
+            "Here are the results based on your uploaded resume."
+          }`,
           timestamp: new Date(),
           shouldType: true,
         };
@@ -1040,7 +1057,7 @@ const ResumeSearchChatBot = () => {
       setSearchProgress({ stage: "", count: 0 });
       setSelectedFile(null);
       if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        fileInputRef.current.value = "";
       }
     }
   };
@@ -1048,7 +1065,7 @@ const ResumeSearchChatBot = () => {
   const handleRemoveFile = () => {
     setSelectedFile(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
@@ -1163,8 +1180,12 @@ const ResumeSearchChatBot = () => {
                 <div className="flex items-center space-x-3">
                   <FileText className="w-5 h-5 text-blue-600" />
                   <div>
-                    <p className="text-sm font-medium text-blue-900">{selectedFile.name}</p>
-                    <p className="text-xs text-blue-600">Ready to process resume</p>
+                    <p className="text-sm font-medium text-blue-900">
+                      {selectedFile.name}
+                    </p>
+                    <p className="text-xs text-blue-600">
+                      Ready to process resume
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -1254,7 +1275,7 @@ const ResumeSearchChatBot = () => {
                       </Button>
                     </>
                   )}
-                  
+
                   <Button
                     onClick={handleSubmit}
                     disabled={isLoading}
@@ -1272,8 +1293,9 @@ const ResumeSearchChatBot = () => {
             </div>
           </div>
           <p className="text-xs text-gray-500 text-center mt-3">
-            Press Enter to search • Shift + Enter for new line • 
-            {userRole === "R" && " Upload resume to find matching candidates •"} Powered by AI
+            Press Enter to search • Shift + Enter for new line •
+            {userRole === "R" && " Upload resume to find matching candidates •"}{" "}
+            Powered by AI
           </p>
         </div>
       </div>

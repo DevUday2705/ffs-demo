@@ -1,10 +1,19 @@
 "use client";
 
-import React from 'react';
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Calendar, Users, Target, FileText, Briefcase, Eye, Copy } from 'lucide-react';
+import {
+  MapPin,
+  Calendar,
+  Users,
+  Target,
+  FileText,
+  Briefcase,
+  Eye,
+  Copy,
+} from "lucide-react";
 
 const JobDetailsComponent = ({ jobDetails, onViewJR, onCopyJR }) => {
   if (!jobDetails || Object.keys(jobDetails).length === 0) {
@@ -14,12 +23,12 @@ const JobDetailsComponent = ({ jobDetails, onViewJR, onCopyJR }) => {
   const {
     "Job Title": jobTitle,
     "Job Description": jobDescription,
-    "Location": locations,
+    Location: locations,
     "Skills Required": skillsRequired,
     "Skills Optional": skillsOptional,
-    "Experience": experience,
+    Experience: experience,
     "Resume Count": resumeCount,
-    "Match Threshold": matchThreshold
+    "Match Threshold": matchThreshold,
   } = jobDetails;
 
   return (
@@ -32,7 +41,7 @@ const JobDetailsComponent = ({ jobDetails, onViewJR, onCopyJR }) => {
               {jobTitle || "Job Details"}
             </CardTitle>
           </div>
-          
+
           {/* Action Buttons */}
           <div className="flex items-center space-x-2">
             <Button
@@ -56,7 +65,7 @@ const JobDetailsComponent = ({ jobDetails, onViewJR, onCopyJR }) => {
           </div>
         </div>
       </CardHeader>
-      
+
       <CardContent className="space-y-6">
         {/* Job Description */}
         {jobDescription && (
@@ -66,7 +75,9 @@ const JobDetailsComponent = ({ jobDetails, onViewJR, onCopyJR }) => {
               <h3 className="font-semibold text-gray-900">Job Description</h3>
             </div>
             <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-gray-700 whitespace-pre-wrap">{jobDescription}</p>
+              <p className="text-gray-700 whitespace-pre-wrap">
+                {jobDescription}
+              </p>
             </div>
           </div>
         )}
@@ -80,9 +91,9 @@ const JobDetailsComponent = ({ jobDetails, onViewJR, onCopyJR }) => {
             </div>
             <div className="flex flex-wrap gap-2">
               {locations.map((location, index) => (
-                <Badge 
-                  key={index} 
-                  variant="secondary" 
+                <Badge
+                  key={index}
+                  variant="secondary"
                   className="bg-green-100 text-green-800 hover:bg-green-200"
                 >
                   {location}
@@ -101,8 +112,8 @@ const JobDetailsComponent = ({ jobDetails, onViewJR, onCopyJR }) => {
             </div>
             <div className="flex flex-wrap gap-2">
               {skillsRequired.map((skill, index) => (
-                <Badge 
-                  key={index} 
+                <Badge
+                  key={index}
                   className="bg-red-100 text-red-800 hover:bg-red-200"
                 >
                   {skill}
@@ -121,8 +132,8 @@ const JobDetailsComponent = ({ jobDetails, onViewJR, onCopyJR }) => {
             </div>
             <div className="flex flex-wrap gap-2">
               {skillsOptional.map((skill, index) => (
-                <Badge 
-                  key={index} 
+                <Badge
+                  key={index}
                   variant="outline"
                   className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
                 >
@@ -138,7 +149,9 @@ const JobDetailsComponent = ({ jobDetails, onViewJR, onCopyJR }) => {
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
               <Calendar className="w-4 h-4 text-gray-600" />
-              <h3 className="font-semibold text-gray-900">Experience Required</h3>
+              <h3 className="font-semibold text-gray-900">
+                Experience Required
+              </h3>
             </div>
             <div className="bg-purple-50 p-3 rounded-lg">
               <p className="text-purple-800 font-medium">
@@ -154,10 +167,14 @@ const JobDetailsComponent = ({ jobDetails, onViewJR, onCopyJR }) => {
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <Users className="w-4 h-4 text-gray-600" />
-                <h3 className="font-semibold text-gray-900">Target Resume Count</h3>
+                <h3 className="font-semibold text-gray-900">
+                  Target Resume Count
+                </h3>
               </div>
               <div className="bg-orange-50 p-3 rounded-lg">
-                <p className="text-orange-800 font-medium">{resumeCount} resumes</p>
+                <p className="text-orange-800 font-medium">
+                  {resumeCount} resumes
+                </p>
               </div>
             </div>
           )}

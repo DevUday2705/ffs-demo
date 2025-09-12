@@ -1,27 +1,33 @@
 "use client";
 
-import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import React from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { 
-  MapPin, 
-  Calendar, 
-  Users, 
-  Target, 
-  FileText, 
-  Briefcase, 
-  DollarSign, 
-  Clock, 
-  Building, 
+import {
+  MapPin,
+  Calendar,
+  Users,
+  Target,
+  FileText,
+  Briefcase,
+  DollarSign,
+  Clock,
+  Building,
   User,
   Mail,
   Phone,
   Copy,
-  ExternalLink
-} from 'lucide-react';
+  ExternalLink,
+} from "lucide-react";
 
 const JRDetailsModal = ({ isOpen, onClose, jobDetails, onCopyJR }) => {
   if (!jobDetails) return null;
@@ -29,18 +35,20 @@ const JRDetailsModal = ({ isOpen, onClose, jobDetails, onCopyJR }) => {
   const {
     "Job Title": jobTitle,
     "Job Description": jobDescription,
-    "Location": locations,
+    Location: locations,
     "Skills Required": skillsRequired,
     "Skills Optional": skillsOptional,
-    "Experience": experience,
+    Experience: experience,
     "Resume Count": resumeCount,
-    "Match Threshold": matchThreshold
+    "Match Threshold": matchThreshold,
   } = jobDetails;
 
   // Generate a sample JR ID and other details
   const jrId = `JR-${Date.now().toString().slice(-6)}`;
   const postedDate = new Date().toLocaleDateString();
-  const expiryDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString();
+  const expiryDate = new Date(
+    Date.now() + 30 * 24 * 60 * 60 * 1000
+  ).toLocaleDateString();
 
   const handleCopyJR = () => {
     const jrLink = `${window.location.origin}/job-requisition/${jrId}`;
@@ -51,7 +59,7 @@ const JRDetailsModal = ({ isOpen, onClose, jobDetails, onCopyJR }) => {
   const handleViewFullJR = () => {
     // Open in new tab
     const jrLink = `/job-requisition/${jrId}`;
-    window.open(jrLink, '_blank');
+    window.open(jrLink, "_blank");
   };
 
   return (
@@ -72,7 +80,7 @@ const JRDetailsModal = ({ isOpen, onClose, jobDetails, onCopyJR }) => {
                 </DialogDescription>
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <Button
                 onClick={handleViewFullJR}
@@ -107,16 +115,28 @@ const JRDetailsModal = ({ isOpen, onClose, jobDetails, onCopyJR }) => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-gray-600">Posted Date</p>
-                  <p className="text-lg font-semibold text-gray-900">{postedDate}</p>
+                  <p className="text-sm font-medium text-gray-600">
+                    Posted Date
+                  </p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {postedDate}
+                  </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-gray-600">Application Deadline</p>
-                  <p className="text-lg font-semibold text-gray-900">{expiryDate}</p>
+                  <p className="text-sm font-medium text-gray-600">
+                    Application Deadline
+                  </p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {expiryDate}
+                  </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-gray-600">Target Hires</p>
-                  <p className="text-lg font-semibold text-gray-900">{resumeCount || 5} candidates</p>
+                  <p className="text-sm font-medium text-gray-600">
+                    Target Hires
+                  </p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {resumeCount || 5} candidates
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -133,7 +153,9 @@ const JRDetailsModal = ({ isOpen, onClose, jobDetails, onCopyJR }) => {
               </CardHeader>
               <CardContent>
                 <div className="bg-gray-50 p-6 rounded-lg">
-                  <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{jobDescription}</p>
+                  <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                    {jobDescription}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -153,9 +175,9 @@ const JRDetailsModal = ({ isOpen, onClose, jobDetails, onCopyJR }) => {
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
                     {locations.map((location, index) => (
-                      <Badge 
-                        key={index} 
-                        variant="secondary" 
+                      <Badge
+                        key={index}
+                        variant="secondary"
                         className="bg-green-100 text-green-800 hover:bg-green-200 px-3 py-1"
                       >
                         {location}
@@ -200,8 +222,8 @@ const JRDetailsModal = ({ isOpen, onClose, jobDetails, onCopyJR }) => {
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
                     {skillsRequired.map((skill, index) => (
-                      <Badge 
-                        key={index} 
+                      <Badge
+                        key={index}
                         className="bg-red-100 text-red-800 hover:bg-red-200 px-3 py-1"
                       >
                         {skill}
@@ -224,8 +246,8 @@ const JRDetailsModal = ({ isOpen, onClose, jobDetails, onCopyJR }) => {
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
                     {skillsOptional.map((skill, index) => (
-                      <Badge 
-                        key={index} 
+                      <Badge
+                        key={index}
                         variant="outline"
                         className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 px-3 py-1"
                       >
@@ -251,11 +273,15 @@ const JRDetailsModal = ({ isOpen, onClose, jobDetails, onCopyJR }) => {
                 <div className="space-y-4">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Target Resume Count:</span>
-                    <span className="font-semibold">{resumeCount || 5} resumes</span>
+                    <span className="font-semibold">
+                      {resumeCount || 5} resumes
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Match Threshold:</span>
-                    <span className="font-semibold">{matchThreshold || 60}%</span>
+                    <span className="font-semibold">
+                      {matchThreshold || 60}%
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Job Type:</span>
@@ -273,7 +299,9 @@ const JRDetailsModal = ({ isOpen, onClose, jobDetails, onCopyJR }) => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Priority:</span>
-                    <Badge className="bg-orange-100 text-orange-800">High</Badge>
+                    <Badge className="bg-orange-100 text-orange-800">
+                      High
+                    </Badge>
                   </div>
                 </div>
               </div>
