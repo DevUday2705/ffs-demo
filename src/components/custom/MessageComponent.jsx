@@ -73,6 +73,8 @@ const MessageComponent = ({
   onScheduleMeeting,
   onBulkActions, // New prop for bulk actions
   onJobApply, // New prop for job applications
+  onViewJR, // New prop for viewing JR details
+  onCopyJR, // New prop for copying JR link
   userRole, // New prop for user role
 }) => {
   console.log(userRole);
@@ -130,7 +132,11 @@ const MessageComponent = ({
             {/* Job Details (for Hiring Managers) */}
             {message.jobDetails && isTypingComplete && userRole === "HM" && (
               <div className="mt-4">
-                <JobDetailsComponent jobDetails={message.jobDetails} />
+                <JobDetailsComponent 
+                  jobDetails={message.jobDetails}
+                  onViewJR={onViewJR}
+                  onCopyJR={onCopyJR}
+                />
               </div>
             )}
 

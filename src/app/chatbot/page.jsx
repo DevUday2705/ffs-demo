@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Send, Bot, User, Loader2, LogOut, Upload, FileText, X } from "lucide-react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import MessageComponent from "@/components/custom/MessageComponent";
 import LoadingComponent from "@/components/custom/LoadingComponent";
 import EmailModal from "@/components/custom/EmailModal";
@@ -10,6 +11,7 @@ import MeetingModal from "@/components/custom/MeetingModal";
 import BulkActionsModal from "@/components/custom/BulkActionsModal";
 import JobDetailsComponent from "@/components/custom/JobDetailsComponent";
 import JobCard from "@/components/custom/JobCard";
+import JRDetailsModal from "@/components/custom/JRDetailsModal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -43,6 +45,10 @@ const ResumeSearchChatBot = () => {
   const [bulkModal, setBulkModal] = useState({
     isOpen: false,
     candidates: [],
+  });
+  const [jrModal, setJrModal] = useState({
+    isOpen: false,
+    jobDetails: null,
   });
 
   // File upload state
@@ -925,6 +931,29 @@ const ResumeSearchChatBot = () => {
     }
   };
 
+  // Handle JR modal actions
+  const handleViewJR = (jobDetails) => {
+    setJrModal({ isOpen: true, jobDetails });
+  };
+
+  const handleCopyJR = (jobDetails) => {
+    // Generate JR link based on job title or ID
+    const jrId = jobDetails["Job Title"]?.replace(/\s+/g, '-').toLowerCase() || 'jr-123456';
+    const jrLink = `${window.location.origin}/job-requisition/${jrId}`;
+    
+    navigator.clipboard.writeText(jrLink).then(() => {
+      toast.success("JR Link Copied!", {
+        description: "Job requisition link has been copied to clipboard.",
+        duration: 3000,
+      });
+    }).catch(() => {
+      toast.error("Copy Failed", {
+        description: "Failed to copy link. Please try again.",
+        duration: 3000,
+      });
+    });
+  };
+
   // File upload handlers
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
@@ -1108,6 +1137,8 @@ const ResumeSearchChatBot = () => {
               onScheduleMeeting={handleScheduleMeeting}
               onBulkActions={handleBulkActions}
               onJobApply={handleJobApply}
+              onViewJR={handleViewJR}
+              onCopyJR={handleCopyJR}
             />
           ))}
 
@@ -1268,6 +1299,12 @@ const ResumeSearchChatBot = () => {
         candidates={bulkModal.candidates}
         onBulkEmail={handleBulkEmail}
         onBulkMeeting={handleBulkMeeting}
+      />
+
+      <JRDetailsModal
+        isOpen={jrModal.isOpen}
+        onClose={() => setJrModal({ isOpen: false, jobDetails: null })}
+        jobDetails={jrModal.jobDetails}
       />
     </div>
   );

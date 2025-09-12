@@ -3,9 +3,10 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Calendar, Users, Target, FileText, Briefcase } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { MapPin, Calendar, Users, Target, FileText, Briefcase, Eye, Copy } from 'lucide-react';
 
-const JobDetailsComponent = ({ jobDetails }) => {
+const JobDetailsComponent = ({ jobDetails, onViewJR, onCopyJR }) => {
   if (!jobDetails || Object.keys(jobDetails).length === 0) {
     return null;
   }
@@ -24,11 +25,35 @@ const JobDetailsComponent = ({ jobDetails }) => {
   return (
     <Card className="w-full mb-4 border-l-4 border-l-blue-500 shadow-lg">
       <CardHeader className="pb-4">
-        <div className="flex items-center space-x-2">
-          <Briefcase className="w-5 h-5 text-blue-600" />
-          <CardTitle className="text-xl text-gray-900">
-            {jobTitle || "Job Details"}
-          </CardTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Briefcase className="w-5 h-5 text-blue-600" />
+            <CardTitle className="text-xl text-gray-900">
+              {jobTitle || "Job Details"}
+            </CardTitle>
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="flex items-center space-x-2">
+            <Button
+              onClick={() => onViewJR && onViewJR(jobDetails)}
+              variant="outline"
+              size="sm"
+              className="flex items-center space-x-2 text-blue-600 border-blue-200 hover:bg-blue-50"
+            >
+              <Eye className="w-4 h-4" />
+              <span>View JR</span>
+            </Button>
+            <Button
+              onClick={() => onCopyJR && onCopyJR(jobDetails)}
+              variant="outline"
+              size="sm"
+              className="flex items-center space-x-2 text-green-600 border-green-200 hover:bg-green-50"
+            >
+              <Copy className="w-4 h-4" />
+              <span>Copy Link</span>
+            </Button>
+          </div>
         </div>
       </CardHeader>
       
