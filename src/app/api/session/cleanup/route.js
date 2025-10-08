@@ -2,21 +2,21 @@ export async function POST(req) {
     try {
         // Handle FormData sent from navigator.sendBeacon
         const formData = await req.formData();
-        const thread_id = formData.get('thread_id');
+        const session_id = formData.get('session_id');
 
         console.log("Received FormData entries:");
         for (const [key, value] of formData.entries()) {
             console.log(`${key}: ${value}`);
         }
-        console.log("Extracted thread_id:", thread_id);
+        console.log("Extracted session_id:", session_id);
 
-        // Validate thread_id
-        if (!thread_id || typeof thread_id !== 'string' || thread_id.trim() === '') {
-            console.log("Invalid thread_id:", { thread_id, type: typeof thread_id, length: thread_id?.length });
+        // Validate session_id
+        if (!session_id || typeof session_id !== 'string' || session_id.trim() === '') {
+            console.log("Invalid session_id:", { session_id, type: typeof session_id, length: session_id?.length });
             return new Response(
-                JSON.stringify({ 
-                    error: "thread_id is required and must be a non-empty string",
-                    received: { value: thread_id, type: typeof thread_id }
+                JSON.stringify({
+                    error: "session_id is required and must be a non-empty string",
+                    received: { value: session_id, type: typeof session_id }
                 }),
                 {
                     status: 400,
@@ -27,12 +27,12 @@ export async function POST(req) {
             );
         }
 
-        console.log("Cleaning up session for thread_id:", thread_id);
+        console.log("Cleaning up session for session_id:", session_id);
 
         // Create URLSearchParams for x-www-form-urlencoded format
         const formBody = new URLSearchParams();
-        formBody.append('thread_id', thread_id);
-        
+        formBody.append('session_id', session_id);
+
         console.log("Request body being sent:", formBody.toString());
 
         const response = await fetch("https://srv933455.hstgr.cloud:27182/session/cleanup", {

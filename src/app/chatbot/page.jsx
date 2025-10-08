@@ -24,6 +24,12 @@ import JRDetailsModal from "@/components/custom/JRDetailsModal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
+const roles = {
+  HM: "hiring_manager",
+  R: "recruiter",
+  C: "candidate",
+};
+
 const ResumeSearchChatBot = () => {
   const router = useRouter();
 
@@ -33,8 +39,7 @@ const ResumeSearchChatBot = () => {
   const [userRole, setUserRole] = useState(null);
   const [userEmail, setUserEmail] = useState(null);
   const [userRoleLabel, setUserRoleLabel] = useState(null);
-  const [threadId, setThreadId] = useState(null);
-  const [isInitializingSession, setIsInitializingSession] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isTypingComplete, setIsTypingComplete] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -90,27 +95,31 @@ const ResumeSearchChatBot = () => {
       const storedUserRole = localStorage.getItem("userRole");
       const storedUserEmail = localStorage.getItem("userEmail");
       const storedUserRoleLabel = localStorage.getItem("userRoleLabel");
+      const storedSessionId = localStorage.getItem("sessionId");
 
       if (isLoggedIn || userToken || isAuthenticated) {
         setIsAuthenticated(true);
         setUserRole(storedUserRole);
         setUserEmail(storedUserEmail);
         setUserRoleLabel(storedUserRoleLabel);
+
+        // Use the session ID created during login
+        if (storedSessionId) {
+          setSessionId(storedSessionId);
+          console.log("Using existing session from login:", storedSessionId);
+        } else {
+          console.error("No session ID found - redirecting to login");
+          router.push("/login");
+          return;
+        }
       } else {
-        router.push("/");
+        router.push("/login");
       }
       setIsCheckingAuth(false);
     };
 
     checkAuth();
   }, [router]);
-
-  // Initialize session when authenticated
-  useEffect(() => {
-    if (isAuthenticated && !threadId && !isInitializingSession) {
-      initializeSession();
-    }
-  }, [isAuthenticated, threadId, isInitializingSession]);
 
   // Set initial message based on user role
   useEffect(() => {
@@ -149,15 +158,15 @@ const ResumeSearchChatBot = () => {
 
   // Session cleanup on window close
   useEffect(() => {
-    if (!threadId) return; // Only set up cleanup if we have a session
+    if (!sessionId) return; // Only set up cleanup if we have a session
 
     const cleanupSession = () => {
-      if (threadId) {
-        console.log("Cleaning up session with thread_id:", threadId);
+      if (sessionId) {
+        console.log("Cleaning up session with session_id:", sessionId);
 
         // Use navigator.sendBeacon for reliable cleanup when the page is unloading
         const data = new FormData();
-        data.append("thread_id", threadId);
+        data.append("session_id", sessionId);
 
         console.log("FormData entries:");
         for (const [key, value] of data.entries()) {
@@ -226,42 +235,7 @@ const ResumeSearchChatBot = () => {
       // Also cleanup session when component unmounts
       cleanupSession();
     };
-  }, [threadId]);
-
-  // Initialize session with the API
-  const initializeSession = async () => {
-    setIsInitializingSession(true);
-    try {
-      const response = await fetch("/api/session", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Session initialization failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      setThreadId(data.thread_id);
-    } catch (error) {
-      // Add error message to chat
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          type: "bot",
-          content:
-            "I'm having trouble connecting to the service. Please refresh the page to try again.",
-          timestamp: new Date(),
-        },
-      ]);
-    } finally {
-      setIsInitializingSession(false);
-    }
-  };
+  }, [sessionId]);
 
   // Auto-scroll when new messages are added, but only if user is near bottom
   useEffect(() => {
@@ -314,30 +288,143 @@ const ResumeSearchChatBot = () => {
     return null;
   }
 
-  // Show loading while initializing session
-  if (isInitializingSession || (isAuthenticated && !threadId)) {
+  // Show loading while checking authentication or if no session available
+  if (isCheckingAuth || (isAuthenticated && !sessionId)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Initializing session...</p>
+          <p className="text-gray-600">
+            {isCheckingAuth ? "Verifying access..." : "Loading session..."}
+          </p>
         </div>
       </div>
     );
   }
 
+  // New API implementation for hiring manager workflow
+  const fetchHiringManagerWorkflow = async (query, file = null) => {
+    try {
+      console.log(
+        "Sending hiring manager query:",
+        query,
+        "Session ID:",
+        sessionId
+      );
+
+      if (!sessionId) {
+        throw new Error("Session not initialized. Please refresh the page.");
+      }
+
+      // Always use FormData (as required by the API)
+      const formData = new FormData();
+      formData.append("session_id", sessionId);
+      formData.append("query", query);
+
+      // Add file if provided
+      if (file) {
+        formData.append("file", file);
+        console.log(
+          "Adding file to FormData:",
+          file.name,
+          file.type,
+          file.size
+        );
+      }
+
+      // Debug: Log what we're sending
+      console.log("FormData entries:");
+      for (let [key, value] of formData.entries()) {
+        console.log(`${key}:`, value);
+      }
+
+      console.log("Sending FormData request to /api/run-workflow");
+
+      const response = await fetch("/api/run-workflow", {
+        method: "POST",
+        body: formData, // Let browser set Content-Type with boundary
+      });
+
+      console.log("Hiring Manager Workflow Response status:", response.status);
+
+      if (!response.ok) {
+        throw new Error(
+          `Workflow request failed with status ${response.status}`
+        );
+      }
+
+      const data = await response.json();
+      console.log("=== Hiring Manager Workflow Response ===", data);
+
+      // Handle the new response format from final_state
+      if (data.final_state) {
+        const { draft_jr, response: botResponse } = data.final_state;
+
+        if (draft_jr) {
+          // Transform draft_jr to jobDetails format expected by JobDetailsComponent
+          const jobDetails = {
+            "Job Title": draft_jr.job_title,
+            "JR ID": draft_jr.jr_id,
+            "Job Description": draft_jr.job_description,
+            "Min Experience": draft_jr.min_experience_years
+              ? `${draft_jr.min_experience_years} years`
+              : "Not specified",
+            "Max Experience": draft_jr.max_experience_years
+              ? `${draft_jr.max_experience_years} years`
+              : "Not specified",
+            "Mandatory Skills": draft_jr.mandatory_skills || [],
+            "Optional Skills": draft_jr.optional_skills || [],
+            Location:
+              draft_jr.location && draft_jr.location.length > 0
+                ? draft_jr.location
+                : ["Location to be specified"],
+            "Number of Openings": draft_jr.number_of_openings || 1,
+            Status: draft_jr.status || "Open",
+            "Approval Status": draft_jr.approval_status || "Pending",
+            "Created At": draft_jr.created_at,
+            "Match Threshold": draft_jr.match_threshold || 0.5,
+          };
+
+          return {
+            jobDetails: jobDetails,
+            message: botResponse || "Job requisition created successfully!",
+            hasJobDetails: true,
+          };
+        } else {
+          return {
+            message: botResponse || "Job requirements processed successfully.",
+            hasJobDetails: false,
+          };
+        }
+      }
+
+      // Fallback for old response format
+      return {
+        jobDetails: data.job_details || data.jobDetails,
+        message:
+          data.supervisor_message ||
+          data.message ||
+          "Job requirements processed successfully.",
+        hasJobDetails: !!(data.job_details || data.jobDetails),
+      };
+    } catch (error) {
+      console.error("Hiring Manager Workflow Error:", error);
+      throw error;
+    }
+  };
+
   // New API implementation for resume search
   const fetchResumesFromAPI = async (query) => {
     try {
-      console.log("Sending query to API:", query, "Thread ID:", threadId);
+      console.log("Sending query to API:", query, "Session ID:", sessionId);
 
-      if (!threadId) {
+      if (!sessionId) {
         throw new Error("Session not initialized. Please refresh the page.");
       }
 
       const formData = new URLSearchParams();
       formData.append("query", query);
-      formData.append("thread_id", threadId);
+      formData.append("session_id", sessionId);
 
       const response = await fetch("/api/invoke", {
         method: "POST",
@@ -346,7 +433,7 @@ const ResumeSearchChatBot = () => {
         },
         body: JSON.stringify({
           query: query,
-          thread_id: threadId,
+          session_id: sessionId,
           role: userRole,
         }),
       });
@@ -636,7 +723,7 @@ const ResumeSearchChatBot = () => {
     if (!currentInput || isLoading) return;
 
     // Check if session is initialized
-    if (!threadId) {
+    if (!sessionId) {
       const errorMessage = {
         id: Date.now(),
         type: "bot",
@@ -668,7 +755,17 @@ const ResumeSearchChatBot = () => {
     setSearchProgress({ stage: "", count: 0 });
 
     try {
-      const apiResponse = await searchResumes(currentInput);
+      let apiResponse;
+
+      // Use different API based on user role
+      if (userRole === "HM" || userEmail === "manager@gmail.com") {
+        // For hiring managers, use the run-workflow API
+        apiResponse = await fetchHiringManagerWorkflow(currentInput);
+      } else {
+        // For recruiters and candidates, use the existing search API
+        apiResponse = await searchResumes(currentInput);
+      }
+
       console.log("API Response:", apiResponse);
 
       const botMessageId = Date.now() + 1;
@@ -986,7 +1083,7 @@ const ResumeSearchChatBot = () => {
   };
 
   const handleFileUpload = async () => {
-    if (!selectedFile || !threadId) return;
+    if (!selectedFile || !sessionId) return;
 
     setIsFileUploading(true);
     setIsLoading(true);
@@ -1002,42 +1099,76 @@ const ResumeSearchChatBot = () => {
     setMessages((prev) => [...prev, userMessage]);
 
     try {
-      // Simulate file processing and then call the API
-      const apiResponse = await searchResumes("looking for python candidates");
+      let apiResponse;
+
+      if (userRole === "HM" || userEmail === "manager@gmail.com") {
+        // For hiring managers, send file directly and use workflow API
+        apiResponse = await fetchHiringManagerWorkflow(
+          `Please analyze this job description file: ${selectedFile.name}`,
+          selectedFile
+        );
+      } else {
+        // For other roles, use existing search API
+        apiResponse = await searchResumes("looking for python candidates");
+      }
+
       console.log("File upload API Response:", apiResponse);
 
       const botMessageId = Date.now() + 1;
       let botMessage;
 
-      // Handle the response similar to regular search
-      if (apiResponse.matches && apiResponse.matches.length > 0) {
-        botMessage = {
-          id: botMessageId,
-          type: "bot",
-          content: `✅ Successfully processed your resume! Based on the skills and experience in ${selectedFile.name}, here are matching candidates:`,
-          resumes: apiResponse.matches,
-          timestamp: new Date(),
-          shouldType: true,
-        };
-      } else if (apiResponse.isEmpty) {
-        botMessage = {
-          id: botMessageId,
-          type: "bot",
-          content: `✅ Processed ${selectedFile.name} successfully, but I couldn't find candidates matching the requirements from your resume. Try uploading a different resume or search manually.`,
-          timestamp: new Date(),
-          shouldType: true,
-        };
+      // Handle different response types based on user role
+      if (userRole === "HM" || userEmail === "manager@gmail.com") {
+        // Hiring manager workflow response - expect job details
+        if (apiResponse.jobDetails && apiResponse.hasJobDetails) {
+          botMessage = {
+            id: botMessageId,
+            type: "bot",
+            content: `✅ Successfully processed your job description file: ${selectedFile.name}. ${apiResponse.message}`,
+            jobDetails: apiResponse.jobDetails,
+            timestamp: new Date(),
+            shouldType: true,
+          };
+        } else {
+          botMessage = {
+            id: botMessageId,
+            type: "bot",
+            content: `✅ Successfully processed ${selectedFile.name}. ${apiResponse.message}`,
+            timestamp: new Date(),
+            shouldType: true,
+          };
+        }
       } else {
-        botMessage = {
-          id: botMessageId,
-          type: "bot",
-          content: `✅ Successfully processed ${selectedFile.name}. ${
-            apiResponse.message ||
-            "Here are the results based on your uploaded resume."
-          }`,
-          timestamp: new Date(),
-          shouldType: true,
-        };
+        // Regular search response for other roles
+        if (apiResponse.matches && apiResponse.matches.length > 0) {
+          botMessage = {
+            id: botMessageId,
+            type: "bot",
+            content: `✅ Successfully processed your resume! Based on the skills and experience in ${selectedFile.name}, here are matching candidates:`,
+            resumes: apiResponse.matches,
+            timestamp: new Date(),
+            shouldType: true,
+          };
+        } else if (apiResponse.isEmpty) {
+          botMessage = {
+            id: botMessageId,
+            type: "bot",
+            content: `✅ Processed ${selectedFile.name} successfully, but I couldn't find candidates matching the requirements from your resume. Try uploading a different resume or search manually.`,
+            timestamp: new Date(),
+            shouldType: true,
+          };
+        } else {
+          botMessage = {
+            id: botMessageId,
+            type: "bot",
+            content: `✅ Successfully processed ${selectedFile.name}. ${
+              apiResponse.message ||
+              "Here are the results based on your uploaded resume."
+            }`,
+            timestamp: new Date(),
+            shouldType: true,
+          };
+        }
       }
 
       setMessages((prev) => [...prev, botMessage]);
@@ -1173,53 +1304,54 @@ const ResumeSearchChatBot = () => {
       {/* Enhanced Input Form */}
       <div className="bg-white border-t border-gray-200 px-4 py-5 shadow-lg">
         <div className="max-w-5xl mx-auto">
-          {/* File Upload Section for Recruiters */}
-          {userRole === "R" && selectedFile && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <FileText className="w-5 h-5 text-blue-600" />
-                  <div>
-                    <p className="text-sm font-medium text-blue-900">
-                      {selectedFile.name}
-                    </p>
-                    <p className="text-xs text-blue-600">
-                      Ready to process resume
-                    </p>
+          {/* File Upload Section for Hiring Managers */}
+          {(userRole === "HM" || userEmail === "manager@gmail.com") &&
+            selectedFile && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <FileText className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <p className="text-sm font-medium text-blue-900">
+                        {selectedFile.name}
+                      </p>
+                      <p className="text-xs text-blue-600">
+                        Ready to process resume
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      onClick={handleFileUpload}
+                      disabled={isFileUploading || isLoading}
+                      size="sm"
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      {isFileUploading ? (
+                        <div className="flex items-center space-x-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Processing...</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <Upload className="w-4 h-4" />
+                          <span>Process Resume</span>
+                        </div>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={handleRemoveFile}
+                      disabled={isFileUploading || isLoading}
+                      size="sm"
+                      variant="outline"
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    onClick={handleFileUpload}
-                    disabled={isFileUploading || isLoading}
-                    size="sm"
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    {isFileUploading ? (
-                      <div className="flex items-center space-x-2">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Processing...</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center space-x-2">
-                        <Upload className="w-4 h-4" />
-                        <span>Process Resume</span>
-                      </div>
-                    )}
-                  </Button>
-                  <Button
-                    onClick={handleRemoveFile}
-                    disabled={isFileUploading || isLoading}
-                    size="sm"
-                    variant="outline"
-                    className="text-red-600 border-red-200 hover:bg-red-50"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
               </div>
-            </div>
-          )}
+            )}
 
           <div className="relative">
             <div className="flex items-end space-x-4">
@@ -1254,8 +1386,8 @@ const ResumeSearchChatBot = () => {
                   }}
                 />
                 <div className="absolute right-3 bottom-3 flex items-center space-x-2">
-                  {/* File Upload Button for Recruiters */}
-                  {userRole === "R" && (
+                  {/* File Upload Button for Hiring Managers */}
+                  {(userRole === "HM" || userEmail === "manager@gmail.com") && (
                     <>
                       <input
                         ref={fileInputRef}

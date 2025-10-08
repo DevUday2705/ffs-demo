@@ -1,6 +1,6 @@
 export async function POST(req) {
     try {
-        const { query, thread_id, role } = await req.json();
+        const { query, session_id, role } = await req.json();
 
         // Add validation
         if (!query || typeof query !== 'string') {
@@ -15,9 +15,9 @@ export async function POST(req) {
             );
         }
 
-        if (!thread_id || typeof thread_id !== 'string') {
+        if (!session_id || typeof session_id !== 'string') {
             return new Response(
-                JSON.stringify({ error: "Thread ID parameter is required and must be a string" }),
+                JSON.stringify({ error: "Session ID parameter is required and must be a string" }),
                 {
                     status: 400,
                     headers: {
@@ -39,11 +39,11 @@ export async function POST(req) {
             );
         }
 
-        console.log("Received query:", query, "Thread ID:", thread_id, "Role:", role);
+        console.log("Received query:", query, "Session ID:", session_id, "Role:", role);
 
         const formData = new URLSearchParams();
         formData.append("query", query);
-        formData.append("thread_id", thread_id);
+        formData.append("session_id", session_id);
         formData.append("role", role);
 
         console.log("Sending to Invoke API:", formData.toString());
