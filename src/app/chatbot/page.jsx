@@ -383,6 +383,11 @@ const ResumeSearchChatBot = () => {
             "Approval Status": draft_jr.approval_status || "Pending",
             "Created At": draft_jr.created_at,
             "Match Threshold": draft_jr.match_threshold || 0.5,
+            // Add role assignment fields for dropdown prefilling
+            "Recruiter ID": draft_jr.recruiter_id,
+            "Approver 1 ID": draft_jr.approver1_id,
+            "Approver 2 ID": draft_jr.approver2_id,
+            "Approver 3 ID": draft_jr.approver3_id,
           };
 
           return {
@@ -1065,6 +1070,87 @@ const ResumeSearchChatBot = () => {
       });
   };
 
+  // Handle role selection from JR dropdowns
+  const handleRoleSelection = async (message) => {
+    // Don't prefill anymore, directly send the API call
+    console.log("Role selection message:", message);
+
+    // Check if session is initialized
+    if (!sessionId) {
+      const errorMessage = {
+        id: Date.now(),
+        type: "bot",
+        content:
+          "Please wait while I initialize the session, or refresh the page if this persists.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      return;
+    }
+
+    // Add user message showing what was assigned
+    const userMessage = {
+      id: Date.now(),
+      type: "user",
+      content: message,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+
+    setIsLoading(true);
+    setSearchProgress({ stage: "", count: 0 });
+
+    try {
+      // Use the hiring manager workflow API for role assignments
+      const apiResponse = await fetchHiringManagerWorkflow(message);
+      console.log("Role assignment API Response:", apiResponse);
+
+      const botMessageId = Date.now() + 1;
+      let botMessage;
+
+      // Handle the response
+      if (apiResponse.jobDetails && apiResponse.hasJobDetails) {
+        // Job details response with updated assignments
+        botMessage = {
+          id: botMessageId,
+          type: "bot",
+          content: apiResponse.message,
+          jobDetails: apiResponse.jobDetails,
+          timestamp: new Date(),
+          shouldType: true,
+        };
+      } else {
+        // Just a confirmation message
+        botMessage = {
+          id: botMessageId,
+          type: "bot",
+          content:
+            apiResponse.message ||
+            "Role assignments have been processed successfully.",
+          timestamp: new Date(),
+          shouldType: true,
+        };
+      }
+
+      setMessages((prev) => [...prev, botMessage]);
+    } catch (error) {
+      console.error("Role assignment error:", error);
+      const errorMessage = {
+        id: Date.now() + 1,
+        type: "bot",
+        content:
+          "Sorry, I encountered an error while processing the role assignments. Please try again.",
+        timestamp: new Date(),
+        shouldType: true,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+      setSearchProgress({ stage: "", count: 0 });
+    }
+  };
+
   // File upload handlers
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
@@ -1287,6 +1373,7 @@ const ResumeSearchChatBot = () => {
               onJobApply={handleJobApply}
               onViewJR={handleViewJR}
               onCopyJR={handleCopyJR}
+              onRoleSelection={handleRoleSelection}
             />
           ))}
 

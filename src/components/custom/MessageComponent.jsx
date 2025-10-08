@@ -75,6 +75,7 @@ const MessageComponent = ({
   onJobApply, // New prop for job applications
   onViewJR, // New prop for viewing JR details
   onCopyJR, // New prop for copying JR link
+  onRoleSelection, // New prop for role selection
   userRole, // New prop for user role
 }) => {
   console.log(userRole);
@@ -136,6 +137,7 @@ const MessageComponent = ({
                   jobDetails={message.jobDetails}
                   onViewJR={onViewJR}
                   onCopyJR={onCopyJR}
+                  onRoleSelection={onRoleSelection}
                 />
               </div>
             )}
