@@ -35,7 +35,7 @@ export async function POST(req) {
 
         console.log("Request body being sent:", formBody.toString());
 
-        const response = await fetch("https://srv933455.hstgr.cloud:27182/session/cleanup", {
+        const response = await fetch("https://srv933455.hstgr.cloud:40080/session/end", {
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",

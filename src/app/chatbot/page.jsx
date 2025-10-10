@@ -67,7 +67,6 @@ const ResumeSearchChatBot = () => {
 
   // File upload state
   const [selectedFile, setSelectedFile] = useState(null);
-  const [isFileUploading, setIsFileUploading] = useState(false);
   const fileInputRef = useRef(null);
 
   const messagesEndRef = useRef(null);
@@ -358,7 +357,39 @@ const ResumeSearchChatBot = () => {
 
       // Handle the new response format from final_state
       if (data.final_state) {
-        const { draft_jr, response: botResponse } = data.final_state;
+        const { draft_jr, jobs, response: botResponse } = data.final_state;
+
+        // Handle jobs array for viewing all jobs
+        if (jobs && jobs.length > 0) {
+          // Transform jobs to the format expected by JobCard components
+          const jobMatches = jobs.map((job) => ({
+            id: job.jr_id,
+            score: 0.95, // Default high score for all jobs when listing
+            metadata: {
+              "Job Title": job.job_title,
+              "Job Description": job.job_description,
+              Location: JSON.stringify(job.location || []),
+              "Skills Required": JSON.stringify(job.mandatory_skills || []),
+              "Skills Optional": JSON.stringify(job.optional_skills || []),
+              Experience: `${job.min_experience_years || 0}-${
+                job.max_experience_years || "Any"
+              } years`,
+              "Match Threshold": job.match_threshold || 0.5,
+              "Resume Count": job.resume_count || 0,
+            },
+          }));
+
+          return {
+            jobDetails: { matches: jobMatches },
+            message:
+              botResponse ||
+              `Found ${jobs.length} job${
+                jobs.length > 1 ? "s" : ""
+              } matching your query.`,
+            hasJobDetails: true,
+            showAsJobList: true,
+          };
+        }
 
         if (draft_jr) {
           // Transform draft_jr to jobDetails format expected by JobDetailsComponent
@@ -743,7 +774,9 @@ const ResumeSearchChatBot = () => {
     const userMessage = {
       id: Date.now(),
       type: "user",
-      content: currentInput,
+      content: selectedFile
+        ? `${currentInput} 📎 ${selectedFile.name}`
+        : currentInput,
       timestamp: new Date(),
     };
 
@@ -764,8 +797,11 @@ const ResumeSearchChatBot = () => {
 
       // Use different API based on user role
       if (userRole === "HM" || userEmail === "manager@gmail.com") {
-        // For hiring managers, use the run-workflow API
-        apiResponse = await fetchHiringManagerWorkflow(currentInput);
+        // For hiring managers, use the run-workflow API with file if attached
+        apiResponse = await fetchHiringManagerWorkflow(
+          currentInput,
+          selectedFile
+        );
       } else {
         // For recruiters and candidates, use the existing search API
         apiResponse = await searchResumes(currentInput);
@@ -782,7 +818,9 @@ const ResumeSearchChatBot = () => {
         botMessage = {
           id: botMessageId,
           type: "bot",
-          content: apiResponse.message,
+          content: selectedFile
+            ? `✅ Successfully processed your file "${selectedFile.name}" along with your query. ${apiResponse.message}`
+            : apiResponse.message,
           jobDetails: apiResponse.jobDetails,
           timestamp: new Date(),
           shouldType: true,
@@ -807,7 +845,9 @@ const ResumeSearchChatBot = () => {
         botMessage = {
           id: botMessageId,
           type: "bot",
-          content: apiResponse.message,
+          content: selectedFile
+            ? `✅ Successfully processed your file "${selectedFile.name}". ${apiResponse.message}`
+            : apiResponse.message,
           timestamp: new Date(),
           shouldType: true,
         };
@@ -866,6 +906,11 @@ const ResumeSearchChatBot = () => {
     } finally {
       setIsLoading(false);
       setSearchProgress({ stage: "", count: 0 });
+      // Clear the selected file after sending
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
       inputRef.current?.focus();
     }
   };
@@ -1168,117 +1213,6 @@ const ResumeSearchChatBot = () => {
     }
   };
 
-  const handleFileUpload = async () => {
-    if (!selectedFile || !sessionId) return;
-
-    setIsFileUploading(true);
-    setIsLoading(true);
-    setSearchProgress({ stage: "", count: 0 });
-
-    // Add user message showing file upload
-    const userMessage = {
-      id: Date.now(),
-      type: "user",
-      content: `📎 Uploaded: ${selectedFile.name}`,
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, userMessage]);
-
-    try {
-      let apiResponse;
-
-      if (userRole === "HM" || userEmail === "manager@gmail.com") {
-        // For hiring managers, send file directly and use workflow API
-        apiResponse = await fetchHiringManagerWorkflow(
-          `Please analyze this job description file: ${selectedFile.name}`,
-          selectedFile
-        );
-      } else {
-        // For other roles, use existing search API
-        apiResponse = await searchResumes("looking for python candidates");
-      }
-
-      console.log("File upload API Response:", apiResponse);
-
-      const botMessageId = Date.now() + 1;
-      let botMessage;
-
-      // Handle different response types based on user role
-      if (userRole === "HM" || userEmail === "manager@gmail.com") {
-        // Hiring manager workflow response - expect job details
-        if (apiResponse.jobDetails && apiResponse.hasJobDetails) {
-          botMessage = {
-            id: botMessageId,
-            type: "bot",
-            content: `✅ Successfully processed your job description file: ${selectedFile.name}. ${apiResponse.message}`,
-            jobDetails: apiResponse.jobDetails,
-            timestamp: new Date(),
-            shouldType: true,
-          };
-        } else {
-          botMessage = {
-            id: botMessageId,
-            type: "bot",
-            content: `✅ Successfully processed ${selectedFile.name}. ${apiResponse.message}`,
-            timestamp: new Date(),
-            shouldType: true,
-          };
-        }
-      } else {
-        // Regular search response for other roles
-        if (apiResponse.matches && apiResponse.matches.length > 0) {
-          botMessage = {
-            id: botMessageId,
-            type: "bot",
-            content: `✅ Successfully processed your resume! Based on the skills and experience in ${selectedFile.name}, here are matching candidates:`,
-            resumes: apiResponse.matches,
-            timestamp: new Date(),
-            shouldType: true,
-          };
-        } else if (apiResponse.isEmpty) {
-          botMessage = {
-            id: botMessageId,
-            type: "bot",
-            content: `✅ Processed ${selectedFile.name} successfully, but I couldn't find candidates matching the requirements from your resume. Try uploading a different resume or search manually.`,
-            timestamp: new Date(),
-            shouldType: true,
-          };
-        } else {
-          botMessage = {
-            id: botMessageId,
-            type: "bot",
-            content: `✅ Successfully processed ${selectedFile.name}. ${
-              apiResponse.message ||
-              "Here are the results based on your uploaded resume."
-            }`,
-            timestamp: new Date(),
-            shouldType: true,
-          };
-        }
-      }
-
-      setMessages((prev) => [...prev, botMessage]);
-    } catch (error) {
-      console.error("File upload error:", error);
-      const errorMessage = {
-        id: Date.now() + 1,
-        type: "bot",
-        content: `❌ Failed to process ${selectedFile.name}. Please try again or search manually.`,
-        timestamp: new Date(),
-        shouldType: true,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-      setIsFileUploading(false);
-      setSearchProgress({ stage: "", count: 0 });
-      setSelectedFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  };
-
   const handleRemoveFile = () => {
     setSelectedFile(null);
     if (fileInputRef.current) {
@@ -1391,51 +1325,29 @@ const ResumeSearchChatBot = () => {
       {/* Enhanced Input Form */}
       <div className="bg-white border-t border-gray-200 px-4 py-5 shadow-lg">
         <div className="max-w-5xl mx-auto">
-          {/* File Upload Section for Hiring Managers */}
+          {/* File Attachment Preview */}
           {(userRole === "HM" || userEmail === "manager@gmail.com") &&
             selectedFile && (
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <FileText className="w-5 h-5 text-blue-600" />
-                    <div>
-                      <p className="text-sm font-medium text-blue-900">
-                        {selectedFile.name}
-                      </p>
-                      <p className="text-xs text-blue-600">
-                        Ready to process resume
-                      </p>
-                    </div>
-                  </div>
                   <div className="flex items-center space-x-2">
-                    <Button
-                      onClick={handleFileUpload}
-                      disabled={isFileUploading || isLoading}
-                      size="sm"
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      {isFileUploading ? (
-                        <div className="flex items-center space-x-2">
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Processing...</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <Upload className="w-4 h-4" />
-                          <span>Process Resume</span>
-                        </div>
-                      )}
-                    </Button>
-                    <Button
-                      onClick={handleRemoveFile}
-                      disabled={isFileUploading || isLoading}
-                      size="sm"
-                      variant="outline"
-                      className="text-red-600 border-red-200 hover:bg-red-50"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-900">
+                      {selectedFile.name}
+                    </span>
+                    <span className="text-xs text-blue-600">
+                      ({(selectedFile.size / 1024).toFixed(1)} KB)
+                    </span>
                   </div>
+                  <Button
+                    onClick={handleRemoveFile}
+                    disabled={isLoading}
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
                 </div>
               </div>
             )}
@@ -1456,7 +1368,7 @@ const ResumeSearchChatBot = () => {
                   }}
                   placeholder={
                     userRole === "HM"
-                      ? "e.g., 'Create a JD for Senior React Developer' or 'I need a job description for Python engineer with 3+ years'"
+                      ? "e.g., 'Create a JD for Senior React Developer' or 'I need a job description for Python engineer with 3+ years' • Attach files for analysis"
                       : userRole === "R"
                       ? "e.g., 'I want 10 React developers' or 'Find me 5 Python engineers with machine learning experience'"
                       : userRole === "C"
@@ -1485,7 +1397,7 @@ const ResumeSearchChatBot = () => {
                       />
                       <Button
                         onClick={() => fileInputRef.current?.click()}
-                        disabled={isLoading || isFileUploading}
+                        disabled={isLoading}
                         size="sm"
                         variant="outline"
                         className="h-10 w-10 p-0 border-gray-300 hover:border-blue-400 hover:bg-blue-50"
@@ -1513,7 +1425,8 @@ const ResumeSearchChatBot = () => {
           </div>
           <p className="text-xs text-gray-500 text-center mt-3">
             Press Enter to search • Shift + Enter for new line •
-            {userRole === "R" && " Upload resume to find matching candidates •"}{" "}
+            {(userRole === "HM" || userEmail === "manager@gmail.com") &&
+              " Click 📎 to attach files •"}{" "}
             Powered by AI
           </p>
         </div>
