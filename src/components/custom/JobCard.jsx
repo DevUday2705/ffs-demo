@@ -12,12 +12,15 @@ import {
   Briefcase,
   Star,
   CheckCircle,
+  Link2,
+  Loader2,
 } from "lucide-react";
 
-const JobCard = ({ job, onApply }) => {
+const JobCard = ({ job, onApply, onAttachCandidate, userRole, context }) => {
   console.log(job, onApply);
   const [isApplied, setIsApplied] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [isAttaching, setIsAttaching] = useState(false);
 
   console.log("JobCard received job data:", job);
 
@@ -74,6 +77,19 @@ const JobCard = ({ job, onApply }) => {
       console.error("Error applying to job:", error);
     } finally {
       setIsApplying(false);
+    }
+  };
+
+  const handleAttach = async () => {
+    if (!onAttachCandidate || !context?.jr_id) return;
+
+    setIsAttaching(true);
+    try {
+      await onAttachCandidate(id, jobTitle, context.jr_id);
+    } catch (error) {
+      console.error("Error attaching candidate to job:", error);
+    } finally {
+      setIsAttaching(false);
     }
   };
 

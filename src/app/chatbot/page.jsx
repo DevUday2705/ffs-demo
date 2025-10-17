@@ -46,6 +46,7 @@ const ResumeSearchChatBot = () => {
   const [searchProgress, setSearchProgress] = useState({ stage: "", count: 0 });
   const [completedAnimations, setCompletedAnimations] = useState(new Set([1]));
   const [actionLoading, setActionLoading] = useState({});
+  const [currentContext, setCurrentContext] = useState(null); // Store context data from API responses
 
   // Modal states
   const [emailModal, setEmailModal] = useState({
@@ -432,6 +433,15 @@ const ResumeSearchChatBot = () => {
       console.log("Has jobDetails.matches?", !!data.jobDetails?.matches);
       console.log("Has hasJobDetails?", !!data.hasJobDetails);
       console.log("Has message?", !!data.message);
+      
+      // Extract and store context if it exists in the response
+      if (data.context && data.context.jr_id) {
+        console.log("🔹 Found context with jr_id:", data.context.jr_id);
+        setCurrentContext(data.context);
+      } else {
+        console.log("🔹 No context found in response");
+        setCurrentContext(null);
+      }
 
       // New Scenario: Job Details Response (for Hiring Managers)
       if (data.job_details && data.supervisor_message) {
@@ -862,6 +872,60 @@ const ResumeSearchChatBot = () => {
   };
 
   // New action handlers
+  const handleAttachCandidate = async (candidateId, candidateName, jrId) => {
+    setActionLoading((prev) => ({ ...prev, [`attach-${candidateId}`]: true }));
+
+    try {
+      const response = await fetch("/api/recruiter/attach-candidate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          jr_id: jrId,
+          candidate_id: candidateId,
+          session_id: sessionId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Add success message to chat
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now(),
+            type: "bot",
+            content: `Successfully attached ${candidateName} to the job requisition.`,
+            timestamp: new Date(),
+            shouldType: true,
+          },
+        ]);
+      } else {
+        throw new Error(data.error || "Failed to attach candidate");
+      }
+    } catch (error) {
+      console.error("Error attaching candidate:", error);
+      // Add error message to chat
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          type: "bot",
+          content: `Sorry, I couldn't attach ${candidateName} to the job requisition. Please try again.`,
+          timestamp: new Date(),
+          shouldType: true,
+        },
+      ]);
+    } finally {
+      setActionLoading((prev) => ({
+        ...prev,
+        [`attach-${candidateId}`]: false,
+      }));
+    }
+  };
+
   const handleUpdateResume = async (candidateId, candidateName) => {
     setActionLoading((prev) => ({ ...prev, [`update-${candidateId}`]: true }));
 
@@ -1254,6 +1318,8 @@ const ResumeSearchChatBot = () => {
               onViewJR={handleViewJR}
               onCopyJR={handleCopyJR}
               onRoleSelection={handleRoleSelection}
+              onAttachCandidate={handleAttachCandidate}
+              context={currentContext}
             />
           ))}
 

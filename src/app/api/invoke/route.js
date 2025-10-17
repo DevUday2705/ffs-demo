@@ -83,12 +83,10 @@ export async function POST(req) {
         if (data.final_state) {
             const finalState = data.final_state;
 
-            // Transform to the format expected by the frontend
+            // Send the complete response data instead of filtering
             const transformedResponse = {
                 message: finalState.response || "I've processed your request.",
-                resumes: finalState.resumes || null,
-                classification: finalState.classification || null,
-                filters: finalState.filters || null
+                ...finalState, // Include all data from final_state
             };
 
             console.log("Transformed response:", transformedResponse);

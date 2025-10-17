@@ -19,6 +19,7 @@ import {
   Linkedin,
   Calculator,
   X,
+  Link2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +42,9 @@ const ResumeCard = ({
   onUpdateResume,
   onSendEmail,
   onScheduleMeeting,
+  onAttachCandidate,
+  userRole,
+  context,
 }) => {
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [isProbabilityModalOpen, setIsProbabilityModalOpen] = useState(false);
@@ -196,7 +200,13 @@ const ResumeCard = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div
+            className={`grid gap-3 ${
+              userRole === "R" && onAttachCandidate && context?.jr_id
+                ? "grid-cols-2 lg:grid-cols-5"
+                : "grid-cols-2 lg:grid-cols-4"
+            }`}
+          >
             {/* View Resume */}
             <Button
               onClick={() => setIsViewerOpen(true)}
@@ -257,6 +267,28 @@ const ResumeCard = ({
                 <span>Download</span>
               </a>
             </Button>
+
+            {/* Attach Candidate (for recruiters only) */}
+            {userRole === "R" && onAttachCandidate && context?.jr_id && (
+              <Button
+                onClick={() =>
+                  onAttachCandidate(
+                    resume.id,
+                    resume.metadata.name,
+                    context.jr_id
+                  )
+                }
+                disabled={actionLoading[`attach-${resume.id}`]}
+                className="bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 text-purple-700 hover:text-purple-800 border border-purple-200/50 shadow-sm hover:shadow-md transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                {actionLoading[`attach-${resume.id}`] ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Link2 className="w-4 h-4" />
+                )}
+                <span>Attach</span>
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -76,10 +76,10 @@ const MessageComponent = ({
   onViewJR, // New prop for viewing JR details
   onCopyJR, // New prop for copying JR link
   onRoleSelection, // New prop for role selection
+  onAttachCandidate, // New prop for attaching candidates
   userRole, // New prop for user role
+  context, // Context data from API response
 }) => {
-  console.log(userRole);
-
   return (
     <div
       className={`flex items-start space-x-4 ${
@@ -130,6 +130,8 @@ const MessageComponent = ({
               )}
             </div>
 
+            {console.log("Message", message)}
+
             {/* Job Details (for Hiring Managers) */}
             {message.jobDetails && isTypingComplete && userRole === "HM" && (
               <div className="mt-4">
@@ -173,6 +175,9 @@ const MessageComponent = ({
                           <JobCard
                             job={job}
                             onApply={onJobApply || (() => {})}
+                            onAttachCandidate={onAttachCandidate}
+                            userRole={userRole}
+                            context={message.context}
                           />
                         </motion.div>
                       ))}
@@ -228,7 +233,13 @@ const MessageComponent = ({
                           ease: [0.4, 0, 0.2, 1],
                         }}
                       >
-                        <JobCard job={job} onApply={onJobApply || (() => {})} />
+                        <JobCard
+                          job={job}
+                          onApply={onJobApply || (() => {})}
+                          onAttachCandidate={onAttachCandidate}
+                          userRole={userRole}
+                          context={message.context}
+                        />
                       </motion.div>
                     ))}
                   </motion.div>
@@ -295,6 +306,9 @@ const MessageComponent = ({
                           onUpdateResume={onUpdateResume}
                           onSendEmail={onSendEmail}
                           onScheduleMeeting={onScheduleMeeting}
+                          onAttachCandidate={onAttachCandidate}
+                          userRole={userRole}
+                          context={context}
                         />
                       </motion.div>
                     ))}
