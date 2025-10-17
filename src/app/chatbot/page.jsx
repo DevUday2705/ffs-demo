@@ -433,7 +433,7 @@ const ResumeSearchChatBot = () => {
       console.log("Has jobDetails.matches?", !!data.jobDetails?.matches);
       console.log("Has hasJobDetails?", !!data.hasJobDetails);
       console.log("Has message?", !!data.message);
-      
+
       // Extract and store context if it exists in the response
       if (data.context && data.context.jr_id) {
         console.log("🔹 Found context with jr_id:", data.context.jr_id);
