@@ -48,7 +48,7 @@ export async function POST(req) {
 
         console.log("Sending to Invoke API:", formData.toString());
 
-        const response = await fetch("https://srv933455.hstgr.cloud:27182/invoke", {
+        const response = await fetch("https://srv933455.hstgr.cloud:40080/recruiter/run-workflow", {
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
@@ -79,7 +79,29 @@ export async function POST(req) {
         const data = await response.json();
         console.log("Invoke API Response data:", data);
 
-        // Handle different response scenarios
+        // Handle new response format with final_state
+        if (data.final_state) {
+            const finalState = data.final_state;
+
+            // Transform to the format expected by the frontend
+            const transformedResponse = {
+                message: finalState.response || "I've processed your request.",
+                resumes: finalState.resumes || null,
+                classification: finalState.classification || null,
+                filters: finalState.filters || null
+            };
+
+            console.log("Transformed response:", transformedResponse);
+
+            return new Response(JSON.stringify(transformedResponse), {
+                status: 200,
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            });
+        }
+
+        // Legacy handling for old response format
         // Scenario 1: Direct results with resumes.matches
         if (data.resumes && data.resumes.matches) {
             return new Response(JSON.stringify(data), {
@@ -100,7 +122,7 @@ export async function POST(req) {
             });
         }
 
-        // Scenario 2: No results found
+        // Scenario 3: No results found
         if (data.message && data.message.includes("No results found")) {
             return new Response(JSON.stringify(data), {
                 status: 200,
@@ -110,7 +132,7 @@ export async function POST(req) {
             });
         }
 
-        // Scenario 3: Supervisor message (invalid query)
+        // Scenario 4: Supervisor message (invalid query)
         if (data.message === "Follow-up or pre-handled case.") {
             return new Response(JSON.stringify(data), {
                 status: 200,

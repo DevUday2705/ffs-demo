@@ -155,86 +155,27 @@ const ResumeSearchChatBot = () => {
     }
   }, [userRole, messages.length]);
 
-  // Session cleanup on window close
-  useEffect(() => {
-    if (!sessionId) return; // Only set up cleanup if we have a session
+  // Session cleanup function - only used on logout now
+  const cleanupSession = () => {
+    if (sessionId) {
+      console.log("Cleaning up session with session_id:", sessionId);
 
-    const cleanupSession = () => {
-      if (sessionId) {
-        console.log("Cleaning up session with session_id:", sessionId);
+      // Use navigator.sendBeacon for reliable cleanup
+      const data = new FormData();
+      data.append("session_id", sessionId);
 
-        // Use navigator.sendBeacon for reliable cleanup when the page is unloading
-        const data = new FormData();
-        data.append("session_id", sessionId);
-
-        console.log("FormData entries:");
-        for (const [key, value] of data.entries()) {
-          console.log(`${key}: ${value}`);
-        }
-
-        // Test with our test endpoint first
-        if (navigator.sendBeacon) {
-          console.log("Using sendBeacon...");
-          const testSuccess = navigator.sendBeacon("/api/test-cleanup", data);
-          console.log("Test sendBeacon result:", testSuccess);
-
-          const cleanupSuccess = navigator.sendBeacon(
-            "/api/session/cleanup",
-            data
-          );
-          console.log("Cleanup sendBeacon result:", cleanupSuccess);
-        } else {
-          console.log("Using fetch fallback...");
-          // Synchronous fallback for older browsers
-          fetch("/api/test-cleanup", {
-            method: "POST",
-            body: data,
-            keepalive: true,
-          })
-            .then((response) => {
-              console.log("Test fetch response:", response.status);
-              return response.json();
-            })
-            .then((data) => {
-              console.log("Test fetch data:", data);
-            })
-            .catch((err) => {
-              console.log("Test fetch error:", err);
-            });
-
-          fetch("/api/session/cleanup", {
-            method: "POST",
-            body: data,
-            keepalive: true,
-          }).catch(() => {}); // Ignore errors during cleanup
-        }
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon("/api/session/cleanup", data);
+      } else {
+        // Fallback for older browsers
+        fetch("/api/session/cleanup", {
+          method: "POST",
+          body: data,
+          keepalive: true,
+        }).catch(() => {}); // Ignore errors during cleanup
       }
-    };
-
-    // Handle tab/window close
-    const handleBeforeUnload = (event) => {
-      cleanupSession();
-    };
-
-    // Handle page visibility change (tab switching, minimizing)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        cleanupSession();
-      }
-    };
-
-    // Add event listeners
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    // Cleanup event listeners on component unmount
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      // Also cleanup session when component unmounts
-      cleanupSession();
-    };
-  }, [sessionId]);
+    }
+  };
 
   // Auto-scroll when new messages are added, but only if user is near bottom
   useEffect(() => {
@@ -257,6 +198,9 @@ const ResumeSearchChatBot = () => {
   }, [isTypingComplete, scrollToBottom]);
 
   const handleLogout = () => {
+    // Clean up session before logout
+    cleanupSession();
+
     localStorage.removeItem("isLoggedIn");
     localStorage.removeItem("userToken");
     localStorage.removeItem("userData");
@@ -566,9 +510,11 @@ const ResumeSearchChatBot = () => {
 
         return {
           matches: transformedMatches,
-          message: `Great! I found ${matches.length} excellent candidate${
-            matches.length > 1 ? "s" : ""
-          } matching your requirements.`,
+          message:
+            data.message ||
+            `Great! I found ${matches.length} excellent candidate${
+              matches.length > 1 ? "s" : ""
+            } matching your requirements.`,
         };
       }
       // Scenario 1b: Fallback for old ranking_pipeline_response structure
