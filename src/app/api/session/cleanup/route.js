@@ -35,14 +35,59 @@ export async function POST(req) {
 
         console.log("Request body being sent:", formBody.toString());
 
-        const response = await fetch("https://srv933455.hstgr.cloud:40080/session/end", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-                "ngrok-skip-browser-warning": "true",
-            },
-            body: formBody.toString(),
-        });
+        // Create AbortController for timeout handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+        let response;
+        try {
+            response = await fetch("https://srv933455.hstgr.cloud:40080/session/end", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "ngrok-skip-browser-warning": "true",
+                },
+                body: formBody.toString(),
+                signal: controller.signal,
+            });
+
+            clearTimeout(timeoutId);
+        } catch (fetchError) {
+            clearTimeout(timeoutId);
+
+            if (fetchError.name === 'AbortError') {
+                console.error("Session cleanup request timed out after 30 seconds");
+                // For session cleanup, we can be more lenient and return success even on timeout
+                // since the session might still be cleaned up server-side
+                return new Response(
+                    JSON.stringify({
+                        message: "Session cleanup request timed out, but session may still be cleaned up",
+                        timeout: true
+                    }),
+                    {
+                        status: 200, // Return 200 instead of error for cleanup timeout
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    }
+                );
+            }
+
+            console.error("Session cleanup network error:", fetchError);
+            // For network errors during cleanup, also return success to avoid blocking user actions
+            return new Response(
+                JSON.stringify({
+                    message: "Network error during session cleanup, but continuing normally",
+                    error: fetchError.message
+                }),
+                {
+                    status: 200, // Return 200 to allow user to continue
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+        }
 
         console.log("Cleanup API Response status:", response.status);
 

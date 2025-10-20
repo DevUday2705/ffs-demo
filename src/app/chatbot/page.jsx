@@ -1320,6 +1320,7 @@ const ResumeSearchChatBot = () => {
               onRoleSelection={handleRoleSelection}
               onAttachCandidate={handleAttachCandidate}
               context={currentContext}
+              sessionId={sessionId}
             />
           ))}
 

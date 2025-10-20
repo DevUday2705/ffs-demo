@@ -1,32 +1,9 @@
-export async function POST(req) {
+export async function GET(req) {
     try {
-        const { jr_id, candidate_id, session_id } = await req.json();
+        const { searchParams } = new URL(req.url);
+        const session_id = searchParams.get('session_id');
 
         // Add validation
-        if (!jr_id || typeof jr_id !== 'string') {
-            return new Response(
-                JSON.stringify({ error: "JR ID parameter is required and must be a string" }),
-                {
-                    status: 400,
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                }
-            );
-        }
-
-        if (!candidate_id || typeof candidate_id !== 'string') {
-            return new Response(
-                JSON.stringify({ error: "Candidate ID parameter is required and must be a string" }),
-                {
-                    status: 400,
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                }
-            );
-        }
-
         if (!session_id || typeof session_id !== 'string') {
             return new Response(
                 JSON.stringify({ error: "Session ID parameter is required and must be a string" }),
@@ -39,14 +16,7 @@ export async function POST(req) {
             );
         }
 
-        console.log("Attaching candidate:", { jr_id, candidate_id, session_id });
-
-        const formData = new URLSearchParams();
-        formData.append("jr_id", jr_id);
-        formData.append("candidate_id", candidate_id);
-        formData.append("session_id", session_id);
-
-        console.log("Sending to Attach Candidate API:", formData.toString());
+        console.log("Fetching job requisitions for session_id:", session_id);
 
         // Create AbortController for timeout handling
         const controller = new AbortController();
@@ -54,13 +24,11 @@ export async function POST(req) {
 
         let response;
         try {
-            response = await fetch("https://srv933455.hstgr.cloud:40080/recruiter/attach-candidate", {
-                method: "POST",
+            response = await fetch(`https://srv933455.hstgr.cloud:40080/recruiter/job-requisitions?session_id=${session_id}`, {
+                method: "GET",
                 headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
                     "ngrok-skip-browser-warning": "true",
                 },
-                body: formData.toString(),
                 signal: controller.signal,
             });
 
@@ -69,11 +37,11 @@ export async function POST(req) {
             clearTimeout(timeoutId);
 
             if (fetchError.name === 'AbortError') {
-                console.error("Attach Candidate API request timed out after 30 seconds");
+                console.error("Job Requisitions API request timed out after 30 seconds");
                 return new Response(
                     JSON.stringify({
                         error: "Request timed out",
-                        message: "The attachment process is taking longer than expected. Please try again.",
+                        message: "Loading job requisitions is taking longer than expected. Please try again.",
                         timeout: true
                     }),
                     {
@@ -85,7 +53,7 @@ export async function POST(req) {
                 );
             }
 
-            console.error("Attach Candidate API network error:", fetchError);
+            console.error("Job Requisitions API network error:", fetchError);
             return new Response(
                 JSON.stringify({
                     error: "Network Error",
@@ -101,11 +69,11 @@ export async function POST(req) {
             );
         }
 
-        console.log("Attach Candidate API Response status:", response.status);
+        console.log("Job Requisitions API Response status:", response.status);
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error("Attach Candidate API Error:", errorText);
+            console.error("Job Requisitions API Error:", errorText);
             return new Response(
                 JSON.stringify({
                     error: `API request failed with status ${response.status}`,
@@ -121,7 +89,7 @@ export async function POST(req) {
         }
 
         const data = await response.json();
-        console.log("Attach Candidate API Response data:", data);
+        console.log("Job Requisitions API Response data:", data);
 
         return new Response(JSON.stringify(data), {
             status: 200,
@@ -130,7 +98,7 @@ export async function POST(req) {
             },
         });
     } catch (err) {
-        console.error("Attach Candidate Server Error:", err);
+        console.error("Job Requisitions Server Error:", err);
         return new Response(
             JSON.stringify({
                 error: "Server Error",

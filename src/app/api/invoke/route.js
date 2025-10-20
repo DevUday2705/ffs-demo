@@ -48,14 +48,58 @@ export async function POST(req) {
 
         console.log("Sending to Invoke API:", formData.toString());
 
-        const response = await fetch("https://srv933455.hstgr.cloud:40080/recruiter/run-workflow", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-                "ngrok-skip-browser-warning": "true",
-            },
-            body: formData.toString(),
-        });
+        // Create AbortController for timeout handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout for main API
+
+        let response;
+        try {
+            response = await fetch("https://srv933455.hstgr.cloud:40080/recruiter/run-workflow", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "ngrok-skip-browser-warning": "true",
+                },
+                body: formData.toString(),
+                signal: controller.signal,
+            });
+
+            clearTimeout(timeoutId);
+        } catch (fetchError) {
+            clearTimeout(timeoutId);
+
+            if (fetchError.name === 'AbortError') {
+                console.error("Invoke API request timed out after 45 seconds");
+                return new Response(
+                    JSON.stringify({
+                        error: "Request timed out",
+                        message: "The AI service is taking longer than expected. Please try again with a simpler query or check your internet connection.",
+                        timeout: true
+                    }),
+                    {
+                        status: 408, // Request Timeout
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    }
+                );
+            }
+
+            console.error("Invoke API network error:", fetchError);
+            return new Response(
+                JSON.stringify({
+                    error: "Network Error",
+                    message: "Unable to connect to the AI service. Please check your internet connection and try again.",
+                    details: fetchError.message
+                }),
+                {
+                    status: 503, // Service Unavailable
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+        }
 
         console.log("Invoke API Response status:", response.status);
 
@@ -164,3 +208,5 @@ export async function POST(req) {
         );
     }
 }
+
+

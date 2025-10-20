@@ -79,6 +79,7 @@ const MessageComponent = ({
   onAttachCandidate, // New prop for attaching candidates
   userRole, // New prop for user role
   context, // Context data from API response
+  sessionId, // Session ID for API calls
 }) => {
   return (
     <div
@@ -309,6 +310,7 @@ const MessageComponent = ({
                           onAttachCandidate={onAttachCandidate}
                           userRole={userRole}
                           context={context}
+                          sessionId={sessionId}
                         />
                       </motion.div>
                     ))}
