@@ -17,57 +17,101 @@ import {
 } from "lucide-react";
 
 const JobCard = ({ job, onApply, onAttachCandidate, userRole, context }) => {
-  console.log(job, onApply);
+  console.log("Job", job);
   const [isApplied, setIsApplied] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [isAttaching, setIsAttaching] = useState(false);
 
   console.log("JobCard received job data:", job);
 
-  const {
+  // Handle both old and new job data structures
+  const isNewStructure = job.jr_id !== undefined;
+
+  let jobTitle,
+    jobDescription,
+    locations,
+    skillsRequired,
+    skillsOptional,
+    experience,
+    matchPercentage,
     id,
-    score,
-    metadata: {
-      "Job Title": jobTitle,
-      "Job Description": jobDescription,
-      Location: locationString,
-      "Skills Required": skillsRequiredString,
-      "Skills Optional": skillsOptionalString,
-      Experience: experienceString,
-      "Match Threshold": matchThreshold,
-      "Resume Count": resumeCount,
-    },
-  } = job;
+    status;
 
-  // Parse the string arrays and other data with better error handling
-  const parseStringArray = (str) => {
-    if (!str || str === "[]") return [];
-    try {
-      return JSON.parse(str.replace(/'/g, '"'));
-    } catch (error) {
-      console.error("Error parsing string array:", str, error);
-      return [];
-    }
-  };
+  if (isNewStructure) {
+    // New structure from /hiring-manager/run-workflow
+    id = job.jr_id;
+    jobTitle = job.job_title;
+    jobDescription = job.job_description;
+    locations = job.location || [];
+    skillsRequired = job.mandatory_skills || [];
+    skillsOptional = job.optional_skills || [];
+    experience = [
+      job.min_experience_years ? parseFloat(job.min_experience_years) : 0,
+      job.max_experience_years ? parseFloat(job.max_experience_years) : null,
+    ];
+    matchPercentage = job.match_threshold
+      ? Math.round(parseFloat(job.match_threshold) * 100)
+      : 0;
+    status = job.status;
+  } else {
+    // Old structure (transformed data)
+    const {
+      id: oldId,
+      score,
+      metadata: {
+        "Job Title": oldJobTitle,
+        "Job Description": oldJobDescription,
+        Location: locationString,
+        "Skills Required": skillsRequiredString,
+        "Skills Optional": skillsOptionalString,
+        Experience: experienceString,
+        "Match Threshold": matchThreshold,
+        "Resume Count": resumeCount,
+        Status: statusFromMetadata, // Try to get status from metadata
+      },
+    } = job;
 
-  const parseExperience = (str) => {
-    if (!str) return [0, 0];
-    try {
-      return JSON.parse(str);
-    } catch (error) {
-      console.error("Error parsing experience:", str, error);
-      return [0, 0];
-    }
-  };
+    id = oldId;
+    jobTitle = oldJobTitle;
+    jobDescription = oldJobDescription;
+    status = statusFromMetadata || job.status || null; // Try multiple places for status
 
-  const locations = parseStringArray(locationString);
-  const skillsRequired = parseStringArray(skillsRequiredString);
-  const skillsOptional = parseStringArray(skillsOptionalString);
-  const experience = parseExperience(experienceString);
+    // Parse the string arrays and other data with better error handling
+    const parseStringArray = (str) => {
+      if (!str || str === "[]") return [];
+      try {
+        return JSON.parse(str.replace(/'/g, '"'));
+      } catch (error) {
+        console.error("Error parsing string array:", str, error);
+        return [];
+      }
+    };
 
-  // Calculate match percentage
-  const matchPercentage = Math.round(score * 100);
+    const parseExperience = (str) => {
+      if (!str) return [0, null];
+      try {
+        // Handle formats like "3.00-Any years" or "3.00-5.00 years"
+        if (str.includes("-")) {
+          const parts = str.split("-");
+          const min = parseFloat(parts[0]);
+          const max = parts[1].toLowerCase().includes("any")
+            ? null
+            : parseFloat(parts[1].replace(" years", ""));
+          return [min, max];
+        }
+        return JSON.parse(str);
+      } catch (error) {
+        console.error("Error parsing experience:", str, error);
+        return [0, null];
+      }
+    };
 
+    locations = parseStringArray(locationString);
+    skillsRequired = parseStringArray(skillsRequiredString);
+    skillsOptional = parseStringArray(skillsOptionalString);
+    experience = parseExperience(experienceString);
+    matchPercentage = Math.round(score * 100);
+  }
   const handleApply = async () => {
     setIsApplying(true);
     try {
@@ -109,32 +153,60 @@ const JobCard = ({ job, onApply, onAttachCandidate, userRole, context }) => {
                   {matchPercentage}% Match
                 </span>
               </div>
+              {/* Status Display */}
+              {status && (
+                <div className="flex items-center space-x-2 mt-1">
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      status === "Open"
+                        ? "bg-green-500"
+                        : status === "Closed"
+                        ? "bg-red-500"
+                        : "bg-yellow-500"
+                    }`}
+                  />
+                  <span
+                    className={`text-xs font-medium ${
+                      status === "Open"
+                        ? "text-green-700"
+                        : status === "Closed"
+                        ? "text-red-700"
+                        : "text-yellow-700"
+                    }`}
+                  >
+                    Status: {status}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
-          <Button
-            onClick={handleApply}
-            disabled={isApplied || isApplying}
-            className={`${
-              isApplied
-                ? "bg-green-600 hover:bg-green-700"
-                : "bg-blue-600 hover:bg-blue-700"
-            } text-white`}
-          >
-            {isApplying ? (
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Applying...</span>
-              </div>
-            ) : isApplied ? (
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="w-4 h-4" />
-                <span>Applied</span>
-              </div>
-            ) : (
-              "Apply Now"
-            )}
-          </Button>
+          {/* Apply Button - Only for Candidates */}
+          {userRole === "C" && (
+            <Button
+              onClick={handleApply}
+              disabled={isApplied || isApplying}
+              className={`${
+                isApplied
+                  ? "bg-green-600 hover:bg-green-700"
+                  : "bg-blue-600 hover:bg-blue-700"
+              } text-white`}
+            >
+              {isApplying ? (
+                <div className="flex items-center space-x-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Applying...</span>
+                </div>
+              ) : isApplied ? (
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Applied</span>
+                </div>
+              ) : (
+                "Apply Now"
+              )}
+            </Button>
+          )}
         </div>
       </CardHeader>
 
@@ -218,7 +290,7 @@ const JobCard = ({ job, onApply, onAttachCandidate, userRole, context }) => {
         )}
 
         {/* Experience Range */}
-        {experience.length === 2 && (
+        {experience.length === 2 && experience[0] !== undefined && (
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
               <Calendar className="w-4 h-4 text-gray-600" />
@@ -228,7 +300,8 @@ const JobCard = ({ job, onApply, onAttachCandidate, userRole, context }) => {
             </div>
             <div className="bg-purple-50 p-2 rounded-lg">
               <p className="text-purple-800 font-medium text-sm">
-                {experience[0]} - {experience[1]} years
+                {experience[0]}
+                {experience[1] ? ` - ${experience[1]}` : "+"} years
               </p>
             </div>
           </div>

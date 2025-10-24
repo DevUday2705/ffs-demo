@@ -321,6 +321,7 @@ const ResumeSearchChatBot = () => {
               } years`,
               "Match Threshold": job.match_threshold || 0.5,
               "Resume Count": job.resume_count || 0,
+              Status: job.status, // Add status to metadata
             },
           }));
 
