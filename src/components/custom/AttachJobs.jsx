@@ -26,7 +26,7 @@ export default function AttachJobs({ isOpen, onClose, attachedJobs = [] }) {
         </DialogHeader>
 
         {/* Job Details Section */}
-        <div className="overflow-y-auto max-h-[55vh] pr-2">
+        <div  className="overflow-y-auto max-h-[55vh] pr-2">
           {attachedJobs.length > 0 ? (
            <ul className="divide-y divide-gray-200">
   {attachedJobs.map((job, index) => (
