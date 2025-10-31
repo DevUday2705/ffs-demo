@@ -133,68 +133,70 @@ const MessageComponent = ({
 
             {console.log("Message", message)}
 
-            {/* Job Details (for Hiring Managers) */}
-            {message.jobDetails && isTypingComplete && userRole === "HM" && (
-              <div className="mt-4">
-                {/* Check if this is a job list (has matches array) or single job details */}
-                {message.jobDetails.matches &&
-                message.jobDetails.matches.length > 0 ? (
-                  // Render job list for HM when viewing all jobs
-                  <div className="space-y-4">
-                    <motion.div
-                      className="grid gap-4"
-                      initial="hidden"
-                      animate="visible"
-                      variants={{
-                        visible: {
-                          transition: {
-                            staggerChildren: 0.1,
+            {/* Job Details (for Hiring Managers and Recruiters) */}
+            {message.jobDetails &&
+              isTypingComplete &&
+              (userRole === "HM" || userRole === "R") && (
+                <div className="mt-4">
+                  {/* Check if this is a job list (has matches array) or single job details */}
+                  {message.jobDetails.matches &&
+                  message.jobDetails.matches.length > 0 ? (
+                    // Render job list for HM when viewing all jobs
+                    <div className="space-y-4">
+                      <motion.div
+                        className="grid gap-4"
+                        initial="hidden"
+                        animate="visible"
+                        variants={{
+                          visible: {
+                            transition: {
+                              staggerChildren: 0.1,
+                            },
                           },
-                        },
-                      }}
-                    >
-                      {message.jobDetails.matches.map((job, jobIndex) => (
-                        <motion.div
-                          key={job.id}
-                          variants={{
-                            hidden: {
-                              opacity: 0,
-                              y: 20,
-                              scale: 0.95,
-                            },
-                            visible: {
-                              opacity: 1,
-                              y: 0,
-                              scale: 1,
-                            },
-                          }}
-                          transition={{
-                            duration: 0.4,
-                            ease: [0.4, 0, 0.2, 1],
-                          }}
-                        >
-                          <JobCard
-                            job={job}
-                            onApply={onJobApply || (() => {})}
-                            onAttachCandidate={onAttachCandidate}
-                            userRole={userRole}
-                            context={message.context}
-                          />
-                        </motion.div>
-                      ))}
-                    </motion.div>
-                  </div>
-                ) : (
-                  // Render single job details component for draft JR
-                  <JobDetailsComponent
-                    jobDetails={message.jobDetails}
-                    onViewJR={onViewJR}
-                    onCopyJR={onCopyJR}
-                    onRoleSelection={onRoleSelection}
-                  />
-                )}
-              </div>
-            )}
+                        }}
+                      >
+                        {message.jobDetails.matches.map((job, jobIndex) => (
+                          <motion.div
+                            key={job.id}
+                            variants={{
+                              hidden: {
+                                opacity: 0,
+                                y: 20,
+                                scale: 0.95,
+                              },
+                              visible: {
+                                opacity: 1,
+                                y: 0,
+                                scale: 1,
+                              },
+                            }}
+                            transition={{
+                              duration: 0.4,
+                              ease: [0.4, 0, 0.2, 1],
+                            }}
+                          >
+                            <JobCard
+                              job={job}
+                              onApply={onJobApply || (() => {})}
+                              onAttachCandidate={onAttachCandidate}
+                              userRole={userRole}
+                              context={message.context}
+                            />
+                          </motion.div>
+                        ))}
+                      </motion.div>
+                    </div>
+                  ) : (
+                    // Render single job details component for draft JR
+                    <JobDetailsComponent
+                      jobDetails={message.jobDetails}
+                      onViewJR={onViewJR}
+                      onCopyJR={onCopyJR}
+                      onRoleSelection={onRoleSelection}
+                    />
+                  )}
+                </div>
+              )}
 
             {/* Job Listings (for Candidates) */}
             {userRole === "C" &&

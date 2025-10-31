@@ -434,6 +434,8 @@ const ResumeSearchChatBot = () => {
       console.log("Has jobDetails.matches?", !!data.jobDetails?.matches);
       console.log("Has hasJobDetails?", !!data.hasJobDetails);
       console.log("Has message?", !!data.message);
+      console.log("Has final_state?", !!data.final_state);
+      console.log("Has final_state.jobs?", !!data.final_state?.jobs);
 
       // Extract and store context if it exists in the response
       if (data.context && data.context.jr_id) {
@@ -442,6 +444,57 @@ const ResumeSearchChatBot = () => {
       } else {
         console.log("🔹 No context found in response");
         setCurrentContext(null);
+      }
+
+      // New Scenario: Recruiter Job List Response (check for both structures)
+      console.log("Checking job list conditions:");
+      console.log("- data.final_state exists:", !!data.final_state);
+      console.log("- data.final_state.jobs exists:", !!data.final_state?.jobs);
+      console.log("- data.jobs exists:", !!data.jobs);
+      console.log("- data.jobs type:", typeof data.jobs);
+      console.log("- data.jobs is array:", Array.isArray(data.jobs));
+      console.log("- data.jobs.length:", data.jobs?.length);
+
+      if (
+        (data.final_state &&
+          data.final_state.jobs &&
+          Array.isArray(data.final_state.jobs) &&
+          data.final_state.jobs.length > 0) ||
+        (data.jobs && Array.isArray(data.jobs) && data.jobs.length > 0)
+      ) {
+        console.log("🔹 Taking RECRUITER JOB LIST path");
+        const jobs = data.final_state?.jobs || data.jobs;
+
+        // Transform jobs to the format expected by JobCard components
+        const jobMatches = jobs.map((job) => ({
+          id: job.jr_id,
+          score: 0.95, // Default high score for all jobs when listing
+          metadata: {
+            "Job Title": job.job_title,
+            "Job Description": job.job_description,
+            Location: JSON.stringify(job.location || []),
+            "Skills Required": JSON.stringify(job.mandatory_skills || []),
+            "Skills Optional": JSON.stringify(job.optional_skills || []),
+            Experience: `${job.min_experience_years || 0}-${
+              job.max_experience_years || "Any"
+            } years`,
+            "Match Threshold": job.match_threshold || 0.5,
+            "Resume Count": job.resume_count || 0,
+            Status: job.status, // Add status to metadata
+          },
+        }));
+
+        return {
+          jobDetails: { matches: jobMatches },
+          message:
+            data.final_state?.response ||
+            data.message ||
+            `Found ${jobs.length} job${
+              jobs.length > 1 ? "s" : ""
+            } matching your query.`,
+          hasJobDetails: true,
+          showAsJobList: true,
+        };
       }
 
       // New Scenario: Job Details Response (for Hiring Managers)
@@ -594,6 +647,46 @@ const ResumeSearchChatBot = () => {
       }
       // Fallback for unexpected response format
       else {
+        console.error(
+          "Unexpected response format:",
+          JSON.stringify(data, null, 2)
+        );
+        // Check if this is a job listing response that wasn't caught earlier
+        if ((data.final_state && data.final_state.jobs) || data.jobs) {
+          console.log("Found job listing response in fallback - redirecting");
+          // This should have been caught earlier - something went wrong
+          const jobs = data.final_state?.jobs || data.jobs;
+          const jobMatches = jobs.map((job) => ({
+            id: job.jr_id,
+            score: 0.95,
+            metadata: {
+              "Job Title": job.job_title,
+              "Job Description": job.job_description,
+              Location: JSON.stringify(job.location || []),
+              "Skills Required": JSON.stringify(job.mandatory_skills || []),
+              "Skills Optional": JSON.stringify(job.optional_skills || []),
+              Experience: `${job.min_experience_years || 0}-${
+                job.max_experience_years || "Any"
+              } years`,
+              "Match Threshold": job.match_threshold || 0.5,
+              "Resume Count": job.resume_count || 0,
+              Status: job.status,
+            },
+          }));
+
+          return {
+            jobDetails: { matches: jobMatches },
+            message:
+              data.final_state?.response ||
+              data.message ||
+              `Found ${jobs.length} job${
+                jobs.length > 1 ? "s" : ""
+              } matching your query.`,
+            hasJobDetails: true,
+            showAsJobList: true,
+          };
+        }
+
         throw new Error(
           "I'm having trouble processing your request. Could you please rephrase your query?"
         );
