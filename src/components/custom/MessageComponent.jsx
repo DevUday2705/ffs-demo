@@ -115,22 +115,6 @@ const MessageComponent = ({
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="inline-block px-5 py-4 bg-white border border-gray-200 rounded-2xl shadow-sm max-w-full">
-              {message.shouldType ? (
-                <TypewriterText
-                  text={message.content}
-                  messageId={message.id}
-                  completedAnimations={completedAnimations}
-                  setCompletedAnimations={setCompletedAnimations}
-                  setIsTypingComplete={setIsTypingComplete}
-                />
-              ) : (
-                <p className="text-sm leading-relaxed text-gray-800">
-                  {message.content}
-                </p>
-              )}
-            </div>
-
             {console.log("Message", message)}
 
             {/* Job Details (for Hiring Managers and Recruiters) */}
@@ -199,7 +183,7 @@ const MessageComponent = ({
                 </div>
               )}
 
-       {/* Job Listings (for Candidates) */}
+            {/* Job Listings (for Candidates) */}
 {userRole === "C" && isTypingComplete && (
   <>
     {/* If there's a list of jobs */}
@@ -318,6 +302,23 @@ const MessageComponent = ({
                   </motion.div>
                 </div>
               )}
+
+            {/* Bot Text Message - shown after all cards */}
+            <div className="inline-block px-5 py-4 bg-white border border-gray-200 rounded-2xl shadow-sm max-w-full">
+              {message.shouldType ? (
+                <TypewriterText
+                  text={message.content}
+                  messageId={message.id}
+                  completedAnimations={completedAnimations}
+                  setCompletedAnimations={setCompletedAnimations}
+                  setIsTypingComplete={setIsTypingComplete}
+                />
+              ) : (
+                <p className="text-sm leading-relaxed text-gray-800">
+                  {message.content}
+                </p>
+              )}
+            </div>
           </div>
         )}
         <p className="text-xs text-gray-500 mt-2 px-1">
