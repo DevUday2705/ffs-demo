@@ -35,7 +35,7 @@ export default function AttachJobs({ isOpen, onClose, attachedJobs = [] }) {
         <p className="font-semibold text-gray-900">Job ID: {job.jobId}</p>
         <p className="text-xs text-gray-500">Attached On: {job.attachedOn}</p>
       </div>
-      <p><strong>Position:</strong> {job.position}</p>
+      {/* <p><strong>Position:</strong> {job.position}</p> */}
       <p><strong>Status:</strong> <span className="text-blue-600">{job.status}</span></p>
     </li>
   ))}

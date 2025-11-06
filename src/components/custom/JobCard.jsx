@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import {
   MapPin,
   Calendar,
@@ -12,20 +13,32 @@ import {
   Briefcase,
   Star,
   CheckCircle,
+  User,
   Link2,
   Loader2,
 } from "lucide-react";
+import CandidateTotalJobs from "./CandidateTotalJobs";
 
-const JobCard = ({ job, onApply, onAttachCandidate, userRole, context }) => {
+const JobCard = ({ job, onApply, onAttachCandidate, userRole, context, sessionId }) => {
   console.log("Job", job);
   const [isApplied, setIsApplied] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
-  const [isAttaching, setIsAttaching] = useState(false);
+  const [isAttaching, setIsAttaching] = useState([]);
+  const [isModelOpen, setIsModelOpen] = useState(false)
+  const [totalJobsApplied, setTotalJobsApplied] = useState(0);
 
+  const jr_id = job?.id;
+  
   console.log("JobCard received job data:", job);
+  const mappingCount = job?.metadata?.["Mapping Count"] ?? 0;
+  // console.log(mappingCount)
+
+
 
   // Handle both old and new job data structures
   const isNewStructure = job.jr_id !== undefined;
+  // const totalJobsApplied = job?.metadata?.mapped_count ?? 0;
+
 
   let jobTitle,
     jobDescription,
@@ -35,6 +48,7 @@ const JobCard = ({ job, onApply, onAttachCandidate, userRole, context }) => {
     experience,
     matchPercentage,
     id,
+    mappingsCount,
     status;
 
   if (isNewStructure) {
@@ -53,6 +67,7 @@ const JobCard = ({ job, onApply, onAttachCandidate, userRole, context }) => {
       ? Math.round(parseFloat(job.match_threshold) * 100)
       : 0;
     status = job.status;
+    mappingsCount=job.mappings_count;
   } else {
     // Old structure (transformed data)
     const {
@@ -66,6 +81,7 @@ const JobCard = ({ job, onApply, onAttachCandidate, userRole, context }) => {
         "Skills Optional": skillsOptionalString,
         Experience: experienceString,
         "Match Threshold": matchThreshold,
+        "Mapping Count": mappings_count,
         "Resume Count": resumeCount,
         Status: statusFromMetadata, // Try to get status from metadata
       },
@@ -75,7 +91,6 @@ const JobCard = ({ job, onApply, onAttachCandidate, userRole, context }) => {
     jobTitle = oldJobTitle;
     jobDescription = oldJobDescription;
     status = statusFromMetadata || job.status || null; // Try multiple places for status
-
     // Parse the string arrays and other data with better error handling
     const parseStringArray = (str) => {
       if (!str || str === "[]") return [];
@@ -86,6 +101,9 @@ const JobCard = ({ job, onApply, onAttachCandidate, userRole, context }) => {
         return [];
       }
     };
+
+ 
+
 
     const parseExperience = (str) => {
       if (!str) return [0, null];
@@ -137,6 +155,81 @@ const JobCard = ({ job, onApply, onAttachCandidate, userRole, context }) => {
     }
   };
 
+
+  // 🖱️ When clicking the button — show modal with full details
+const handleCandidateJobs = async () => {
+  console.log("📍 handleCandidateJobs triggered:", { jr_id, sessionId });
+
+  if (!jr_id || !sessionId) {
+    toast("⚠️ Missing job or session info", { position: "top-center" });
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `/api/recruiter/CandidateTotalJobs?jr_id=${jr_id}&session_id=${sessionId}`
+    );
+
+    if (!response.ok) {
+      toast("No Candidate Found", { position: "top-center" });
+      setIsAttaching(null);
+      setIsModelOpen(false);
+      return;
+    }
+
+    const data = await response.json();
+    const mappings = data.mappings || [];
+
+    // Find the array that contains candidate info (with metadata)
+    const candidateArray = mappings.find((item) => Array.isArray(item) && item[0]?.metadata);
+    if (!candidateArray || candidateArray.length === 0) {
+      toast("No candidates available for this job", { position: "top-center" });
+      setIsAttaching(null);
+      setIsModelOpen(false);
+      return;
+    }
+
+    // Pick first candidate (or modify later for multiple)
+    const candidate = candidateArray[0];
+    const jobDetails = mappings.find(
+      (m) => Array.isArray(m) && m.some((item) => item.jr_id)
+    )?.find((j) => j.jr_id === jr_id) || {};
+
+    const candidateData = {
+      fullName: candidate?.metadata?.full_name || "N/A",
+      email: candidate?.metadata?.email || "N/A",
+      phone: candidate?.metadata?.phone_number || "N/A",
+      education: candidate?.metadata?.education || "N/A",
+      location: candidate?.metadata?.location || "N/A",
+      skills: candidate?.metadata?.skills?.join(", ") || "N/A",
+      experience: candidate?.metadata?.total_experience || "N/A",
+      jobTitle: jobDetails?.job_title || "N/A",
+      jobDescription: jobDetails?.job_description || "N/A",
+      jr_id: jobDetails?.jr_id || "N/A",
+      mappings,
+    };
+
+    // Only open modal if valid data exists
+    if (candidateData.fullName !== "N/A" && candidateData.jobTitle !== "N/A") {
+      setIsAttaching(candidateData);
+      setIsModelOpen(true);
+    } else {
+      toast("Candidate data incomplete", { position: "top-center" });
+      setIsAttaching(null);
+      setIsModelOpen(false);
+    }
+  } catch (error) {
+    console.error("🔥 Error fetching candidate details:", error);
+    toast("Error fetching candidate details", { position: "top-center" });
+    setIsAttaching(null);
+    setIsModelOpen(false);
+  }
+};
+
+
+
+
+
   return (
     <Card className="w-full mb-4 border-l-4 border-l-green-500 shadow-lg hover:shadow-xl transition-shadow duration-300">
       <CardHeader className="pb-4">
@@ -180,6 +273,24 @@ const JobCard = ({ job, onApply, onAttachCandidate, userRole, context }) => {
               )}
             </div>
           </div>
+      <Button
+  onClick={handleCandidateJobs}
+  className="cursor-pointer"
+>
+  <User className="w-15 h-15 text-white-700" />
+  <span>{mappingCount}</span>
+</Button>
+
+{isModelOpen && isAttaching && (
+  <CandidateTotalJobs
+    isOpen={isModelOpen}
+    onClose={() => setIsModelOpen(false)}
+    candidateId={isAttaching}
+    sessionId={sessionId}
+  />
+)}
+
+
 
           {/* Apply Button - Only for Candidates */}
           {userRole === "C" && (
@@ -212,16 +323,28 @@ const JobCard = ({ job, onApply, onAttachCandidate, userRole, context }) => {
 
       <CardContent className="space-y-4">
         {/* Job Description */}
-        <div className="space-y-2">
-          <h3 className="font-semibold text-gray-900 text-sm">
-            Job Description
-          </h3>
-          <div className="bg-gray-50 p-3 rounded-lg">
-            <p className="text-gray-700 text-sm leading-relaxed">
-              {jobDescription}
-            </p>
-          </div>
-        </div>
+          <div className="space-y-2">
+  <h3 className="font-semibold text-gray-900 text-sm">Job Description</h3>
+  {jobDescription && jobDescription.trim().startsWith("<!DOCTYPE html>") ? (
+    <div className="bg-gray-50 p-3 rounded-lg">
+      <a
+        href={`data:text/html;charset=utf-8,${encodeURIComponent(jobDescription)}`}
+        target="_blank"
+        download="JobDescription.html"
+        rel="noopener noreferrer"
+        className="text-blue-600 hover:underline font-medium"
+      >
+        View Job Description Document
+      </a>
+    </div>
+  ) : (
+    <div className="bg-gray-50 rounded-lg">
+      <p className="text-gray-700 text-sm leading-relaxed">
+        {jobDescription || "No job description provided."}
+      </p>
+    </div>
+  )}
+</div>
 
         {/* Locations */}
         {locations.length > 0 && (

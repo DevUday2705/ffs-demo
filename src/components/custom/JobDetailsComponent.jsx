@@ -192,12 +192,23 @@ const JobDetailsComponent = ({
     "Job Title": jobTitle,
     "Job Description": jobDescription,
     Location: locations,
-    "Skills Required": skillsRequired,
-    "Skills Optional": skillsOptional,
-    Experience: experience,
+    "Mandatory Skills": skillsRequired,
+    "Optional Skills": skillsOptional,
+     "Min Experience": minExperience,
+  "Max Experience": maxExperience,
     "Resume Count": resumeCount,
     "Match Threshold": matchThreshold,
   } = jobDetails;
+
+ const experience = [];
+
+if (minExperience && minExperience !== "Not specified") {
+  experience[0] = minExperience.replace(" years", "");
+}
+if (maxExperience && maxExperience !== "Not specified") {
+  experience[1] = maxExperience.replace(" years", "");
+}
+
 
   return (
     <Card className="w-full mb-4 border-l-4 border-l-blue-500 shadow-lg">
@@ -313,21 +324,23 @@ const JobDetailsComponent = ({
         )}
 
         {/* Experience Range */}
-        {experience && experience.length === 2 && (
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <Calendar className="w-4 h-4 text-gray-600" />
-              <h3 className="font-semibold text-gray-900">
-                Experience Required
-              </h3>
-            </div>
-            <div className="bg-purple-50 p-3 rounded-lg">
-              <p className="text-purple-800 font-medium">
-                {experience[0]} - {experience[1]} years
-              </p>
-            </div>
-          </div>
-        )}
+    {(experience[0] || experience[1]) && (
+  <div className="space-y-2">
+    <div className="flex items-center space-x-2">
+      <Calendar className="w-4 h-4 text-gray-600" />
+      <h3 className="font-semibold text-gray-900">Experience Required</h3>
+    </div>
+    <div className="bg-purple-50 p-3 rounded-lg">
+      <p className="text-purple-800 font-medium">
+        {experience[0] ? `${experience[0]}` : "N/A"} -{" "}
+        {experience[1] ? `${experience[1]} years` : "N/A"}
+      </p>
+    </div>
+  </div>
+)}
+
+
+
 
         {/* Resume Count and Match Threshold */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -354,7 +367,7 @@ const JobDetailsComponent = ({
                 <h3 className="font-semibold text-gray-900">Match Threshold</h3>
               </div>
               <div className="bg-indigo-50 p-3 rounded-lg">
-                <p className="text-indigo-800 font-medium">{matchThreshold}%</p>
+                <p className="text-indigo-800 font-medium">{matchThreshold * 100}%</p>
               </div>
             </div>
           )}

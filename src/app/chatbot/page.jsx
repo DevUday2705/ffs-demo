@@ -321,6 +321,7 @@ const ResumeSearchChatBot = () => {
               } years`,
               "Match Threshold": job.match_threshold || 0.5,
               "Resume Count": job.resume_count || 0,
+              "Mapping Count": job.mappings_count,
               Status: job.status, // Add status to metadata
             },
           }));
@@ -394,6 +395,92 @@ const ResumeSearchChatBot = () => {
       throw error;
     }
   };
+
+const fetchCandidateWorkflow = async (query, file = null) => {
+  try {
+    console.log("Sending candidate query:", query, "Session ID:", sessionId);
+
+    if (!sessionId) {
+      throw new Error("Session not initialized. Please refresh the page.");
+    }
+
+    const formData = new FormData();
+    formData.append("session_id", sessionId);
+    formData.append("query", query);
+    if (file) formData.append("file", file);
+
+    const response = await fetch("/api/candidate/total-jobs", {
+      method: "POST",
+      body: formData,
+    });
+
+    console.log("Candidate Workflow Response status:", response.status);
+    if (!response.ok) {
+      throw new Error(`Candidate workflow failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log("=== Candidate Workflow Response ===", data);
+
+    const final = data?.final_state;
+
+    if (final) {
+      const { jobs, response: botResponse } = final;
+
+      // 🟢 Handle job list (for candidate job suggestions)
+      if (Array.isArray(jobs) && jobs.length > 0) {
+        const jobList = jobs.map((job) => ({
+          id: job.jr_id,
+          job_title: job.job_title,
+          job_description: job.job_description,
+          location: job.location || [],
+          mandatory_skills: job.mandatory_skills || [],
+          optional_skills: job.optional_skills || [],
+          min_experience_years: job.min_experience_years || 0,
+          max_experience_years: job.max_experience_years || "Any",
+          match_threshold: job.match_threshold || 0.5,
+          status: job.status || "Open",
+        }));
+
+        return {
+          jobDetails: { list: jobList },
+          message:
+            botResponse ||
+            `Found ${jobs.length} job${jobs.length > 1 ? "s" : ""} matching your profile.`,
+          hasJobDetails: true,
+          showAsJobList: true,
+        };
+      }
+
+      // 🟡 No jobs found but valid response
+      return {
+        message: botResponse || "No matching jobs found for your query.",
+        hasJobDetails: false,
+        jobDetails: undefined,
+      };
+    }
+
+    // 🔵 Fallback (plain text message from model)
+    return {
+      message:
+        data.message ||
+        data.supervisor_message ||
+        "Let's find some Python jobs for you. Could you please specify a location or experience level to narrow down the search?",
+      hasJobDetails: false,
+      jobDetails: undefined,
+    };
+  } catch (error) {
+    console.error("Candidate Workflow Error:", error);
+    return {
+      message: "Something went wrong while processing your request.",
+      hasJobDetails: false,
+      jobDetails: undefined,
+    };
+  }
+};
+
+
+
 
   // New API implementation for resume search
   const fetchResumesFromAPI = async (query) => {
@@ -479,6 +566,7 @@ const ResumeSearchChatBot = () => {
               job.max_experience_years || "Any"
             } years`,
             "Match Threshold": job.match_threshold || 0.5,
+            "Mapping Count":job.mappings_count || 0,
             "Resume Count": job.resume_count || 0,
             Status: job.status, // Add status to metadata
           },
@@ -561,6 +649,7 @@ const ResumeSearchChatBot = () => {
               ? match.metadata.skills
               : [],
             relevance_score: match.score,
+            mappingCount: match.mappings_count,
             download_url: match.metadata.download_url,
             job_title: match.metadata.job_title,
             summary: match.metadata.summary,
@@ -609,6 +698,7 @@ const ResumeSearchChatBot = () => {
               ? match.metadata.skills
               : [],
             relevance_score: match.score,
+            mappingCount: match.mappings_count,
             download_url: match.metadata.download_url,
             job_title: match.metadata.job_title,
             summary: match.metadata.summary,
@@ -668,6 +758,7 @@ const ResumeSearchChatBot = () => {
               Experience: `${job.min_experience_years || 0}-${
                 job.max_experience_years || "Any"
               } years`,
+              "Mapping Count": job.mappings_count,
               "Match Threshold": job.match_threshold || 0.5,
               "Resume Count": job.resume_count || 0,
               Status: job.status,
@@ -848,11 +939,18 @@ const ResumeSearchChatBot = () => {
       // Use different API based on user role
       if (userRole === "HM" || userEmail === "manager@gmail.com") {
         // For hiring managers, use the run-workflow API with file if attached
-        apiResponse = await fetchHiringManagerWorkflow(
+        apiResponse = await fetchHiringManagerWorkflow
+        (
           currentInput,
           selectedFile
         );
-      } else {
+      }
+    else if (userRole === "C") {
+  // For candidates
+  apiResponse = await fetchCandidateWorkflow(currentInput, selectedFile);
+
+} 
+      else {
         // For recruiters and candidates, use the existing search API
         apiResponse = await searchResumes(currentInput);
       }

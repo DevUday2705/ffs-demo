@@ -49,7 +49,7 @@ const ResumeCard = ({
   context,
   sessionId,
 }) => {
-  console.log('Resume found', resume)
+  console.log("Resume found", resume);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [isProbabilityModalOpen, setIsProbabilityModalOpen] = useState(false);
   const [isJobSelectionModalOpen, setIsJobSelectionModalOpen] = useState(false);
@@ -57,13 +57,16 @@ const ResumeCard = ({
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   const [isAttachedJobsModel, setIsAttachedJobsModel] = useState(false);
   const [attachedJobs, setAttachedJobs] = useState([]);
-  
+
   // Fixed probability calculation - calculate once and memoize based on resume ID
   const baseScore = resume.metadata.relevance_score || 0.7;
   const fixedProbability = Math.floor(
     (baseScore + (parseInt(resume.id.slice(-2), 16) % 30) / 100) * 100
   );
 
+  //Mapping Count
+  const mappingCount = resume?.metadata?.mappingCount;
+  console.log(mappingCount)
   // Generate consistent summary based on resume data
   const candidateSummary =
     resume.metadata.summary ||
@@ -86,6 +89,7 @@ const ResumeCard = ({
       const data = await response.json();
       setAvailableJobs(data.jobs || []);
       setIsJobSelectionModalOpen(true);
+      setAttachedJobs(attachedJobs.length)
     } catch (error) {
       console.error("Error fetching job requisitions:", error);
       // Could add error toast here
@@ -94,36 +98,6 @@ const ResumeCard = ({
     }
   };
 
-
- useEffect(() => {
-  const fetchAttachedJobCount = async () => {
-    try {
-      if (!resume?.id || !sessionId) return;
-
-      const response = await fetch(
-        `/api/recruiter/attach-jobs?candidate_id=${resume.id}&session_id=${sessionId}`
-      );
-
-      if (!response.ok) {
-        setAttachedJobs([]); // keep it clean
-        return;
-      }
-
-      const data = await response.json();
-
-      // ✅ Only count jobs, don’t map details here
-      const jobs = Array.isArray(data.jobs) ? data.jobs : [];
-      setAttachedJobs(jobs);
-    } catch (error) {
-      console.error("❌ Error fetching job count:", error);
-      setAttachedJobs([]);
-    }
-  };
-
-  fetchAttachedJobCount();
-}, [resume?.id, sessionId]);
-
-  // 🔹 When button clicked → just open modal (data already fetched)
  const handleOpenModal = async () => {
   try {
     if (!resume?.id || !sessionId) return;
@@ -139,24 +113,35 @@ const ResumeCard = ({
     }
 
     const data = await response.json();
+    console.log("📦 API Response:", data);
 
-    if (!data.jobs || data.jobs.length === 0) {
+    // ✅ Ensure mappings exist
+    if (!Array.isArray(data.mappings) || data.mappings.length === 0) {
       toast("No Jobs Allocated", { position: "top-center" });
       setAttachedJobs([]);
       return;
     }
 
-    const formattedData = data.jobs.map((job, index) => {
-      const mapping = data.mappings?.[index] || {};
-      return {
-        jobId: job.jr_id || "N/A",
-        position: job.job_title || "Unknown Role",
-        status: mapping.status || job.status || "N/A",
-        attachedOn: mapping.mapped_date
-          ? new Date(mapping.mapped_date).toLocaleDateString()
-          : "Not Available",
-      };
-    });
+    // ✅ Filter out non-object / nested arrays
+    const validMappings = data.mappings.filter(
+      (item) => item && !Array.isArray(item) && typeof item === "object" && item.jr_id
+    );
+
+    if (validMappings.length === 0) {
+      toast("No Jobs Allocated", { position: "top-center" });
+      setAttachedJobs([]);
+      return;
+    }
+
+    // ✅ Format only the valid mapping objects
+    const formattedData = validMappings.map((map) => ({
+      jobId: map.jr_id || "N/A",
+      position: map.job_title || "Unknown Role",
+      status: map.status || "N/A",
+      attachedOn: map.mapped_date
+        ? new Date(map.mapped_date).toLocaleDateString()
+        : "Not Available",
+    }));
 
     setAttachedJobs(formattedData);
     setIsAttachedJobsModel(true);
@@ -165,7 +150,6 @@ const ResumeCard = ({
     setAttachedJobs([]);
   }
 };
-
 
 
   // Handle attach button click
@@ -214,13 +198,23 @@ const ResumeCard = ({
                     {fixedProbability}% probability
                   </Button>
                 </div>
-       <Button onClick={handleOpenModal} className="absolute cursor-pointer top-8 right-3 flex items-center justify-center gap-1 text-gray-700 hover:text-white-600 transition-all bg-gray-100 hover:bg-gray-200 rounded-full p-2 shadow-sm" > <Briefcase size={25} /> <span className="text-lg font-semibold">{attachedJobs.length}</span> </Button>
+               <Button
+  onClick={handleOpenModal}
+  className="absolute cursor-pointer top-8 right-3 flex items-center justify-center gap-1 text-gray-700 hover:text-white-600 transition-all bg-gray-100 hover:bg-gray-200 rounded-full p-2 shadow-sm"
+>
+  <Briefcase size={25} />
+  <span className="text-lg font-semibold">
+    {attachedJobs.length || mappingCount || 0}
+  </span>
+</Button>
+
               </div>
- <AttachJobs
-        isOpen={isAttachedJobsModel}
-        onClose={() => setIsAttachedJobsModel(false)}
-        attachedJobs={attachedJobs}
-      />
+             <AttachJobs
+  isOpen={isAttachedJobsModel}
+  onClose={() => setIsAttachedJobsModel(false)}
+  attachedJobs={attachedJobs}
+/>
+
               {/* Candidate Summary */}
               <div className="mb-3">
                 <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
@@ -427,8 +421,6 @@ const ResumeCard = ({
         candidate={resume}
         currentProbability={fixedProbability}
       />
-
-      
 
       {/* Job Selection Modal */}
       <JobSelectionModal
