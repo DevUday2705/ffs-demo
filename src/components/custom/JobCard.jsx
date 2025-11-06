@@ -273,22 +273,25 @@ const handleCandidateJobs = async () => {
               )}
             </div>
           </div>
-      <Button
-  onClick={handleCandidateJobs}
-  className="cursor-pointer"
->
-  <User className="w-15 h-15 text-white-700" />
-  <span>{mappingCount}</span>
-</Button>
+     {/* Show mapping count button only if NOT a Candidate */}
+{userRole !== "C" && (
+  <>
+    <Button onClick={handleCandidateJobs} className="cursor-pointer flex items-center gap-1">
+      <User className="w-4 h-4 text-white" />
+      <span className="text-sm">{mappingCount}</span>
+    </Button>
 
-{isModelOpen && isAttaching && (
-  <CandidateTotalJobs
-    isOpen={isModelOpen}
-    onClose={() => setIsModelOpen(false)}
-    candidateId={isAttaching}
-    sessionId={sessionId}
-  />
+    {isModelOpen && isAttaching && (
+      <CandidateTotalJobs
+        isOpen={isModelOpen}
+        onClose={() => setIsModelOpen(false)}
+        candidateId={isAttaching}
+        sessionId={sessionId}
+      />
+    )}
+  </>
 )}
+
 
 
 

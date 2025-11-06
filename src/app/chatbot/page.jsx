@@ -10,6 +10,7 @@ import {
   Upload,
   FileText,
   X,
+  Briefcase,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -23,6 +24,7 @@ import JobCard from "@/components/custom/JobCard";
 import JRDetailsModal from "@/components/custom/JRDetailsModal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import AppliedJobs from "@/components/custom/AppliedJobs";
 
 const roles = {
   HM: "hiring_manager",
@@ -47,6 +49,8 @@ const ResumeSearchChatBot = () => {
   const [completedAnimations, setCompletedAnimations] = useState(new Set([1]));
   const [actionLoading, setActionLoading] = useState({});
   const [currentContext, setCurrentContext] = useState(null); // Store context data from API responses
+  const [appliedJobs, setShowAppliedJobs] = useState(false)
+  const [appliedJobsData, setAppliedJobsData] = useState([]);
 
   // Modal states
   const [emailModal, setEmailModal] = useState({
@@ -1269,29 +1273,103 @@ const ResumeSearchChatBot = () => {
   };
 
   // Handle job applications (for candidates)
-  const handleJobApply = async (jobId, jobTitle) => {
-    try {
-      // Simulate job application
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+ const handleJobApply = async (jobId, jobTitle) => {
+  try {
+    // Optional: Add your session_id logic (maybe from context or props)
+    const session_id = sessionId; // make sure this exists in your component
+    const application_remarks = `Applying for ${jobTitle}`;
 
+    // Show immediate feedback (optional)
+    const applyingMessage = {
+      id: Date.now(),
+      type: "bot",
+      content: `🕒 Applying for ${jobTitle}... please wait.`,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, applyingMessage]);
+
+    // 🔥 Call your Next.js API route
+    const response = await fetch("/api/candidate/apply-jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jr_id: jobId,
+        session_id,
+        application_remarks,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (data?.detail === "Failed to create mapping.") {
+      const alreadyMessage = {
+        id: Date.now(),
+        type: "bot",
+        content: `🟡 You’ve already applied for **${jobTitle}**!.`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, alreadyMessage]);
+      return;
+    }
+
+    if (response.ok && data.success !== false) {
       const successMessage = {
         id: Date.now(),
         type: "bot",
-        content: `🎉 Successfully applied to ${jobTitle}! Your application has been submitted and the hiring team will review it shortly. Good luck!`,
+        content: `🎉 Successfully applied to **${jobTitle}**! Your application has been submitted and the hiring team will review it shortly.`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, successMessage]);
-    } catch (error) {
-      console.error("Error applying to job:", error);
-      const errorMessage = {
+    } else {
+      const failMessage = {
         id: Date.now(),
         type: "bot",
-        content: `❌ Failed to apply to ${jobTitle}. Please try again later.`,
+        content: `⚠️ Failed to apply to ${jobTitle}. ${data.message || "Please try again later."}`,
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, errorMessage]);
+      setMessages((prev) => [...prev, failMessage]);
     }
-  };
+  } catch (error) {
+    console.error("Error applying to job:", error);
+    const errorMessage = {
+      id: Date.now(),
+      type: "bot",
+      content: `❌ Error applying to ${jobTitle}. Please try again later.`,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, errorMessage]);
+  }
+};
+
+
+//Handle Applied JObs
+const handleAppliedJobs = async () => {
+  const session_id = sessionId;
+  try {
+    const res = await fetch(`/api/candidate/applied-jobs?session_id=${session_id}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      toast("Apply The Jobs First", { position: "top-center" });
+      return;
+    }
+
+    // ✅ Combine job info with applied job data (applied_jobs status takes priority)
+    const merged = data.applied_jobs.map((jobMap) => {
+      const jobInfo = data.jobs.find((j) => j.jr_id === jobMap.jr_id);
+      return { ...jobInfo, ...jobMap }; // <-- applied_jobs overwrites jobs data
+    });
+
+    setAppliedJobsData(merged);
+    setShowAppliedJobs(true);
+  } catch (err) {
+    console.error("Error fetching applied jobs:", err);
+  }
+};
+
+
+
+
 
   // Handle JR modal actions
   const handleViewJR = (jobDetails) => {
@@ -1595,7 +1673,7 @@ const ResumeSearchChatBot = () => {
                 />
                 <div className="absolute right-3 bottom-3 flex items-center space-x-2">
                   {/* File Upload Button for Hiring Managers */}
-                  {(userRole === "HM" || userEmail === "manager@gmail.com") && (
+                  {(userRole === "HM" || userEmail === "manager@gmail.com" || userRole === "C") && (
                     <>
                       <input
                         ref={fileInputRef}
@@ -1634,12 +1712,37 @@ const ResumeSearchChatBot = () => {
           </div>
           <p className="text-xs text-gray-500 text-center mt-3">
             Press Enter to search • Shift + Enter for new line •
-            {(userRole === "HM" || userEmail === "manager@gmail.com") &&
+            {(userRole === "HM" || userEmail === "manager@gmail.com" || userRole === "C") &&
               " Click 📎 to attach files •"}{" "}
             Powered by AI
           </p>
         </div>
       </div>
+
+
+              {/* Applied JOBS button */}
+{userRole === "C" && (
+  <div className="fixed bottom-40 right-6 z-50">
+    <button
+      onClick={handleAppliedJobs}
+      className="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition-all duration-300 hover:scale-110"
+      title="View Applied Jobs"
+    >
+      <Briefcase className="w-10 h-10" />
+    </button>
+  </div>
+)}
+
+<AppliedJobs
+  isOpen={appliedJobs}
+  onClose={() => setShowAppliedJobs(false)}
+  appliedData={appliedJobsData}
+/>
+
+
+
+
+
 
       {/* Modals */}
       <EmailModal
