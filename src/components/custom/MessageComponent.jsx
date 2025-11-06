@@ -184,53 +184,52 @@ const MessageComponent = ({
               )}
 
             {/* Job Listings (for Candidates) */}
-{userRole === "C" && isTypingComplete && (
-  <>
-    {/* If there's a list of jobs */}
-    {message.jobDetails?.list && message.jobDetails.list.length > 0 ? (
-      <div className="space-y-4 mt-4">
-        <motion.div
-          className="grid gap-4"
-          initial="hidden"
-          animate="visible"
-          variants={{
-            visible: {
-              transition: { staggerChildren: 0.1 },
-            },
-          }}
-        >
-          {message.jobDetails.list.map((job, index) => (
-            <motion.div
-              key={job.id || index}
-              variants={{
-                hidden: { opacity: 0, y: 20, scale: 0.95 },
-                visible: { opacity: 1, y: 0, scale: 1 },
-              }}
-              transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-            >
-              <JobCard
-                job={job}
-                sessionId={sessionId}
-                onApply={onJobApply || (() => {})}
-                onAttachCandidate={onAttachCandidate}
-                userRole={userRole}
-              />
-            </motion.div>
-          ))}
-        </motion.div>
-      </div>
-    ) : (
-      // Else: fallback message from backend
-      message.jobDetails?.response && (
-        <div className="p-4 text-gray-700 text-center">
-          {message.jobDetails.response}
-        </div>
-      )
-    )}
-  </>
-)}
-
-
+            {userRole === "C" && isTypingComplete && (
+              <>
+                {/* If there's a list of jobs */}
+                {message.jobDetails?.list &&
+                message.jobDetails.list.length > 0 ? (
+                  <div className="space-y-4 mt-4">
+                    <motion.div
+                      className="grid gap-4"
+                      initial="hidden"
+                      animate="visible"
+                      variants={{
+                        visible: {
+                          transition: { staggerChildren: 0.1 },
+                        },
+                      }}
+                    >
+                      {message.jobDetails.list.map((job, index) => (
+                        <motion.div
+                          key={job.id || index}
+                          variants={{
+                            hidden: { opacity: 0, y: 20, scale: 0.95 },
+                            visible: { opacity: 1, y: 0, scale: 1 },
+                          }}
+                          transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                        >
+                          <JobCard
+                            job={job}
+                            sessionId={sessionId}
+                            onApply={onJobApply || (() => {})}
+                            onAttachCandidate={onAttachCandidate}
+                            userRole={userRole}
+                          />
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  </div>
+                ) : (
+                  // Else: fallback message from backend
+                  message.jobDetails?.response && (
+                    <div className="p-4 text-gray-700 text-center">
+                      {message.jobDetails.response}
+                    </div>
+                  )
+                )}
+              </>
+            )}
 
             {/* Resume Results */}
             {message.resumes &&
