@@ -1,8 +1,19 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Send, Bot, User, Loader2, LogOut } from "lucide-react";
+import {
+  Send,
+  Bot,
+  User,
+  Loader2,
+  LogOut,
+  Upload,
+  FileText,
+  X,
+  Briefcase,
+} from "lucide-react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import MessageComponent from "@/components/custom/MessageComponent";
 import LoadingComponent from "@/components/custom/LoadingComponent";
 import EmailModal from "@/components/custom/EmailModal";
@@ -10,8 +21,16 @@ import MeetingModal from "@/components/custom/MeetingModal";
 import BulkActionsModal from "@/components/custom/BulkActionsModal";
 import JobDetailsComponent from "@/components/custom/JobDetailsComponent";
 import JobCard from "@/components/custom/JobCard";
+import JRDetailsModal from "@/components/custom/JRDetailsModal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import AppliedJobs from "@/components/custom/AppliedJobs";
+
+const roles = {
+  HM: "hiring_manager",
+  R: "recruiter",
+  C: "candidate",
+};
 
 const ResumeSearchChatBot = () => {
   const router = useRouter();
@@ -22,14 +41,16 @@ const ResumeSearchChatBot = () => {
   const [userRole, setUserRole] = useState(null);
   const [userEmail, setUserEmail] = useState(null);
   const [userRoleLabel, setUserRoleLabel] = useState(null);
-  const [threadId, setThreadId] = useState(null);
-  const [isInitializingSession, setIsInitializingSession] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isTypingComplete, setIsTypingComplete] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [searchProgress, setSearchProgress] = useState({ stage: "", count: 0 });
   const [completedAnimations, setCompletedAnimations] = useState(new Set([1]));
   const [actionLoading, setActionLoading] = useState({});
+  const [currentContext, setCurrentContext] = useState(null); // Store context data from API responses
+  const [appliedJobs, setShowAppliedJobs] = useState(false)
+  const [appliedJobsData, setAppliedJobsData] = useState([]);
 
   // Modal states
   const [emailModal, setEmailModal] = useState({
@@ -44,6 +65,14 @@ const ResumeSearchChatBot = () => {
     isOpen: false,
     candidates: [],
   });
+  const [jrModal, setJrModal] = useState({
+    isOpen: false,
+    jobDetails: null,
+  });
+
+  // File upload state
+  const [selectedFile, setSelectedFile] = useState(null);
+  const fileInputRef = useRef(null);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -70,27 +99,31 @@ const ResumeSearchChatBot = () => {
       const storedUserRole = localStorage.getItem("userRole");
       const storedUserEmail = localStorage.getItem("userEmail");
       const storedUserRoleLabel = localStorage.getItem("userRoleLabel");
+      const storedSessionId = localStorage.getItem("sessionId");
 
       if (isLoggedIn || userToken || isAuthenticated) {
         setIsAuthenticated(true);
         setUserRole(storedUserRole);
         setUserEmail(storedUserEmail);
         setUserRoleLabel(storedUserRoleLabel);
+
+        // Use the session ID created during login
+        if (storedSessionId) {
+          setSessionId(storedSessionId);
+          console.log("Using existing session from login:", storedSessionId);
+        } else {
+          console.error("No session ID found - redirecting to login");
+          router.push("/login");
+          return;
+        }
       } else {
-        router.push("/");
+        router.push("/login");
       }
       setIsCheckingAuth(false);
     };
 
     checkAuth();
   }, [router]);
-
-  // Initialize session when authenticated
-  useEffect(() => {
-    if (isAuthenticated && !threadId && !isInitializingSession) {
-      initializeSession();
-    }
-  }, [isAuthenticated, threadId, isInitializingSession]);
 
   // Set initial message based on user role
   useEffect(() => {
@@ -127,119 +160,25 @@ const ResumeSearchChatBot = () => {
     }
   }, [userRole, messages.length]);
 
-  // Session cleanup on window close
-  useEffect(() => {
-    if (!threadId) return; // Only set up cleanup if we have a session
+  // Session cleanup function - only used on logout now
+  const cleanupSession = () => {
+    if (sessionId) {
+      console.log("Cleaning up session with session_id:", sessionId);
 
-    const cleanupSession = () => {
-      if (threadId) {
-        console.log("Cleaning up session with thread_id:", threadId);
+      // Use navigator.sendBeacon for reliable cleanup
+      const data = new FormData();
+      data.append("session_id", sessionId);
 
-        // Use navigator.sendBeacon for reliable cleanup when the page is unloading
-        const data = new FormData();
-        data.append("thread_id", threadId);
-
-        console.log("FormData entries:");
-        for (const [key, value] of data.entries()) {
-          console.log(`${key}: ${value}`);
-        }
-
-        // Test with our test endpoint first
-        if (navigator.sendBeacon) {
-          console.log("Using sendBeacon...");
-          const testSuccess = navigator.sendBeacon("/api/test-cleanup", data);
-          console.log("Test sendBeacon result:", testSuccess);
-
-          const cleanupSuccess = navigator.sendBeacon(
-            "/api/session/cleanup",
-            data
-          );
-          console.log("Cleanup sendBeacon result:", cleanupSuccess);
-        } else {
-          console.log("Using fetch fallback...");
-          // Synchronous fallback for older browsers
-          fetch("/api/test-cleanup", {
-            method: "POST",
-            body: data,
-            keepalive: true,
-          })
-            .then((response) => {
-              console.log("Test fetch response:", response.status);
-              return response.json();
-            })
-            .then((data) => {
-              console.log("Test fetch data:", data);
-            })
-            .catch((err) => {
-              console.log("Test fetch error:", err);
-            });
-
-          fetch("/api/session/cleanup", {
-            method: "POST",
-            body: data,
-            keepalive: true,
-          }).catch(() => {}); // Ignore errors during cleanup
-        }
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon("/api/session/cleanup", data);
+      } else {
+        // Fallback for older browsers
+        fetch("/api/session/cleanup", {
+          method: "POST",
+          body: data,
+          keepalive: true,
+        }).catch(() => {}); // Ignore errors during cleanup
       }
-    };
-
-    // Handle tab/window close
-    const handleBeforeUnload = (event) => {
-      cleanupSession();
-    };
-
-    // Handle page visibility change (tab switching, minimizing)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        cleanupSession();
-      }
-    };
-
-    // Add event listeners
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    // Cleanup event listeners on component unmount
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      // Also cleanup session when component unmounts
-      cleanupSession();
-    };
-  }, [threadId]);
-
-  // Initialize session with the API
-  const initializeSession = async () => {
-    setIsInitializingSession(true);
-    try {
-      const response = await fetch("/api/session", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Session initialization failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      setThreadId(data.thread_id);
-    } catch (error) {
-      // Add error message to chat
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          type: "bot",
-          content:
-            "I'm having trouble connecting to the service. Please refresh the page to try again.",
-          timestamp: new Date(),
-        },
-      ]);
-    } finally {
-      setIsInitializingSession(false);
     }
   };
 
@@ -264,6 +203,9 @@ const ResumeSearchChatBot = () => {
   }, [isTypingComplete, scrollToBottom]);
 
   const handleLogout = () => {
+    // Clean up session before logout
+    cleanupSession();
+
     localStorage.removeItem("isLoggedIn");
     localStorage.removeItem("userToken");
     localStorage.removeItem("userData");
@@ -294,30 +236,276 @@ const ResumeSearchChatBot = () => {
     return null;
   }
 
-  // Show loading while initializing session
-  if (isInitializingSession || (isAuthenticated && !threadId)) {
+  // Show loading while checking authentication or if no session available
+  if (isCheckingAuth || (isAuthenticated && !sessionId)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Initializing session...</p>
+          <p className="text-gray-600">
+            {isCheckingAuth ? "Verifying access..." : "Loading session..."}
+          </p>
         </div>
       </div>
     );
   }
 
+  // New API implementation for hiring manager workflow
+  const fetchHiringManagerWorkflow = async (query, file = null) => {
+    try {
+      console.log(
+        "Sending hiring manager query:",
+        query,
+        "Session ID:",
+        sessionId
+      );
+
+      if (!sessionId) {
+        throw new Error("Session not initialized. Please refresh the page.");
+      }
+
+      // Always use FormData (as required by the API)
+      const formData = new FormData();
+      formData.append("session_id", sessionId);
+      formData.append("query", query);
+
+      // Add file if provided
+      if (file) {
+        formData.append("file", file);
+        console.log(
+          "Adding file to FormData:",
+          file.name,
+          file.type,
+          file.size
+        );
+      }
+
+      // Debug: Log what we're sending
+      console.log("FormData entries:");
+      for (let [key, value] of formData.entries()) {
+        console.log(`${key}:`, value);
+      }
+
+      console.log("Sending FormData request to /api/run-workflow");
+
+      const response = await fetch("/api/run-workflow", {
+        method: "POST",
+        body: formData, // Let browser set Content-Type with boundary
+      });
+
+      console.log("Hiring Manager Workflow Response status:", response.status);
+
+      if (!response.ok) {
+        throw new Error(
+          `Workflow request failed with status ${response.status}`
+        );
+      }
+
+      const data = await response.json();
+      console.log("=== Hiring Manager Workflow Response ===", data);
+
+      // Handle the new response format from final_state
+      if (data.final_state) {
+        const { draft_jr, jobs, response: botResponse } = data.final_state;
+
+        // Handle jobs array for viewing all jobs
+        if (jobs && jobs.length > 0) {
+          // Transform jobs to the format expected by JobCard components
+          const jobMatches = jobs.map((job) => ({
+            id: job.jr_id,
+            score: 0.95, // Default high score for all jobs when listing
+            metadata: {
+              "Job Title": job.job_title,
+              "Job Description": job.job_description,
+              Location: JSON.stringify(job.location || []),
+              "Skills Required": JSON.stringify(job.mandatory_skills || []),
+              "Skills Optional": JSON.stringify(job.optional_skills || []),
+              Experience: `${job.min_experience_years || 0}-${
+                job.max_experience_years || "Any"
+              } years`,
+              "Match Threshold": job.match_threshold || 0.5,
+              "Resume Count": job.resume_count || 0,
+              "Mapping Count": job.mappings_count,
+              Status: job.status, // Add status to metadata
+            },
+          }));
+
+          return {
+            jobDetails: { matches: jobMatches },
+            message:
+              botResponse ||
+              `Found ${jobs.length} job${
+                jobs.length > 1 ? "s" : ""
+              } matching your query.`,
+            hasJobDetails: true,
+            showAsJobList: true,
+          };
+        }
+
+        if (draft_jr) {
+          // Transform draft_jr to jobDetails format expected by JobDetailsComponent
+          const jobDetails = {
+            "Job Title": draft_jr.job_title,
+            "JR ID": draft_jr.jr_id,
+            "Job Description": draft_jr.job_description,
+            "Min Experience": draft_jr.min_experience_years
+              ? `${draft_jr.min_experience_years} years`
+              : "Not specified",
+            "Max Experience": draft_jr.max_experience_years
+              ? `${draft_jr.max_experience_years} years`
+              : "Not specified",
+            "Mandatory Skills": draft_jr.mandatory_skills || [],
+            "Optional Skills": draft_jr.optional_skills || [],
+            Location:
+              draft_jr.location && draft_jr.location.length > 0
+                ? draft_jr.location
+                : ["Location to be specified"],
+            "Number of Openings": draft_jr.number_of_openings || 1,
+            Status: draft_jr.status || "Open",
+            "Approval Status": draft_jr.approval_status || "Pending",
+            "Created At": draft_jr.created_at,
+            "Match Threshold": draft_jr.match_threshold || 0.5,
+            // Add role assignment fields for dropdown prefilling
+            "Recruiter ID": draft_jr.recruiter_id,
+            "Approver 1 ID": draft_jr.approver1_id,
+            "Approver 2 ID": draft_jr.approver2_id,
+            "Approver 3 ID": draft_jr.approver3_id,
+          };
+
+          return {
+            jobDetails: jobDetails,
+            message: botResponse || "Job requisition created successfully!",
+            hasJobDetails: true,
+          };
+        } else {
+          return {
+            message: botResponse || "Job requirements processed successfully.",
+            hasJobDetails: false,
+          };
+        }
+      }
+
+      // Fallback for old response format
+      return {
+        jobDetails: data.job_details || data.jobDetails,
+        message:
+          data.supervisor_message ||
+          data.message ||
+          "Job requirements processed successfully.",
+        hasJobDetails: !!(data.job_details || data.jobDetails),
+      };
+    } catch (error) {
+      console.error("Hiring Manager Workflow Error:", error);
+      throw error;
+    }
+  };
+
+  const fetchCandidateWorkflow = async (query, file = null) => {
+    try {
+      console.log("Sending candidate query:", query, "Session ID:", sessionId);
+
+      if (!sessionId) {
+        throw new Error("Session not initialized. Please refresh the page.");
+      }
+
+      const formData = new FormData();
+      formData.append("session_id", sessionId);
+      formData.append("query", query);
+      if (file) formData.append("file", file);
+
+      const response = await fetch("/api/candidate/total-jobs", {
+        method: "POST",
+        body: formData,
+      });
+
+      console.log("Candidate Workflow Response status:", response.status);
+      if (!response.ok) {
+        throw new Error(
+          `Candidate workflow failed with status ${response.status}`
+        );
+      }
+
+      const data = await response.json();
+      console.log("=== Candidate Workflow Response ===", data);
+
+      const final = data?.final_state;
+
+      if (final) {
+        const { jobs, response: botResponse } = final;
+
+        // 🟢 Handle job list (for candidate job suggestions)
+        if (Array.isArray(jobs) && jobs.length > 0) {
+          // Transform jobs to the format expected by JobCard components (same as recruiter format)
+          const jobList = jobs.map((job) => ({
+            id: job.jr_id,
+            score: final.job_scores?.[job.jr_id] || 0.95,
+            metadata: {
+              "Job Title": job.job_title,
+              "Job Description": job.job_description,
+              Location: JSON.stringify(job.location || []),
+              "Skills Required": JSON.stringify(job.mandatory_skills || []),
+              "Skills Optional": JSON.stringify(job.optional_skills || []),
+              Experience: `${job.min_experience_years || 0}-${
+                job.max_experience_years || "Any"
+              } years`,
+              "Match Threshold": job.match_threshold || 0.5,
+              "Resume Count": job.resume_count || 0,
+              Status: job.status,
+              "Number of Openings": job.number_of_openings || 1,
+            },
+          }));
+
+          return {
+            jobDetails: { list: jobList },
+            message:
+              botResponse ||
+              `Found ${jobs.length} job${
+                jobs.length > 1 ? "s" : ""
+              } matching your profile.`,
+            hasJobDetails: true,
+            showAsJobList: true,
+          };
+        }
+
+        // 🟡 No jobs found but valid response
+        return {
+          message: botResponse || "No matching jobs found for your query.",
+          hasJobDetails: false,
+          jobDetails: undefined,
+        };
+      }
+
+      // 🔵 Fallback (plain text message from model)
+      return {
+        message:
+          data.message ||
+          data.supervisor_message ||
+          "Let's find some Python jobs for you. Could you please specify a location or experience level to narrow down the search?",
+        hasJobDetails: false,
+        jobDetails: undefined,
+      };
+    } catch (error) {
+      console.error("Candidate Workflow Error:", error);
+      return {
+        message: "Something went wrong while processing your request.",
+        hasJobDetails: false,
+        jobDetails: undefined,
+      };
+    }
+  };
+
   // New API implementation for resume search
   const fetchResumesFromAPI = async (query) => {
     try {
-      console.log("Sending query to API:", query, "Thread ID:", threadId);
+      console.log("Sending query to API:", query, "Session ID:", sessionId);
 
-      if (!threadId) {
+      if (!sessionId) {
         throw new Error("Session not initialized. Please refresh the page.");
       }
 
       const formData = new URLSearchParams();
       formData.append("query", query);
-      formData.append("thread_id", threadId);
+      formData.append("session_id", sessionId);
 
       const response = await fetch("/api/invoke", {
         method: "POST",
@@ -326,7 +514,7 @@ const ResumeSearchChatBot = () => {
         },
         body: JSON.stringify({
           query: query,
-          thread_id: threadId,
+          session_id: sessionId,
           role: userRole,
         }),
       });
@@ -345,6 +533,69 @@ const ResumeSearchChatBot = () => {
       console.log("Has jobDetails.matches?", !!data.jobDetails?.matches);
       console.log("Has hasJobDetails?", !!data.hasJobDetails);
       console.log("Has message?", !!data.message);
+      console.log("Has final_state?", !!data.final_state);
+      console.log("Has final_state.jobs?", !!data.final_state?.jobs);
+
+      // Extract and store context if it exists in the response
+      if (data.context && data.context.jr_id) {
+        console.log("🔹 Found context with jr_id:", data.context.jr_id);
+        setCurrentContext(data.context);
+      } else {
+        console.log("🔹 No context found in response");
+        setCurrentContext(null);
+      }
+
+      // New Scenario: Recruiter Job List Response (check for both structures)
+      console.log("Checking job list conditions:");
+      console.log("- data.final_state exists:", !!data.final_state);
+      console.log("- data.final_state.jobs exists:", !!data.final_state?.jobs);
+      console.log("- data.jobs exists:", !!data.jobs);
+      console.log("- data.jobs type:", typeof data.jobs);
+      console.log("- data.jobs is array:", Array.isArray(data.jobs));
+      console.log("- data.jobs.length:", data.jobs?.length);
+
+      if (
+        (data.final_state &&
+          data.final_state.jobs &&
+          Array.isArray(data.final_state.jobs) &&
+          data.final_state.jobs.length > 0) ||
+        (data.jobs && Array.isArray(data.jobs) && data.jobs.length > 0)
+      ) {
+        console.log("🔹 Taking RECRUITER JOB LIST path");
+        const jobs = data.final_state?.jobs || data.jobs;
+
+        // Transform jobs to the format expected by JobCard components
+        const jobMatches = jobs.map((job) => ({
+          id: job.jr_id,
+          score: 0.95, // Default high score for all jobs when listing
+          metadata: {
+            "Job Title": job.job_title,
+            "Job Description": job.job_description,
+            Location: JSON.stringify(job.location || []),
+            "Skills Required": JSON.stringify(job.mandatory_skills || []),
+            "Skills Optional": JSON.stringify(job.optional_skills || []),
+            Experience: `${job.min_experience_years || 0}-${
+              job.max_experience_years || "Any"
+            } years`,
+            "Match Threshold": job.match_threshold || 0.5,
+            "Mapping Count": job.mappings_count || 0,
+            "Resume Count": job.resume_count || 0,
+            Status: job.status, // Add status to metadata
+          },
+        }));
+
+        return {
+          jobDetails: { matches: jobMatches },
+          message:
+            data.final_state?.response ||
+            data.message ||
+            `Found ${jobs.length} job${
+              jobs.length > 1 ? "s" : ""
+            } matching your query.`,
+          hasJobDetails: true,
+          showAsJobList: true,
+        };
+      }
 
       // New Scenario: Job Details Response (for Hiring Managers)
       if (data.job_details && data.supervisor_message) {
@@ -410,6 +661,7 @@ const ResumeSearchChatBot = () => {
               ? match.metadata.skills
               : [],
             relevance_score: match.score,
+            mappingCount: match.mappings_count,
             download_url: match.metadata.download_url,
             job_title: match.metadata.job_title,
             summary: match.metadata.summary,
@@ -423,9 +675,11 @@ const ResumeSearchChatBot = () => {
 
         return {
           matches: transformedMatches,
-          message: `Great! I found ${matches.length} excellent candidate${
-            matches.length > 1 ? "s" : ""
-          } matching your requirements.`,
+          message:
+            data.message ||
+            `Great! I found ${matches.length} excellent candidate${
+              matches.length > 1 ? "s" : ""
+            } matching your requirements.`,
         };
       }
       // Scenario 1b: Fallback for old ranking_pipeline_response structure
@@ -456,6 +710,7 @@ const ResumeSearchChatBot = () => {
               ? match.metadata.skills
               : [],
             relevance_score: match.score,
+            mappingCount: match.mappings_count,
             download_url: match.metadata.download_url,
             job_title: match.metadata.job_title,
             summary: match.metadata.summary,
@@ -494,6 +749,47 @@ const ResumeSearchChatBot = () => {
       }
       // Fallback for unexpected response format
       else {
+        console.error(
+          "Unexpected response format:",
+          JSON.stringify(data, null, 2)
+        );
+        // Check if this is a job listing response that wasn't caught earlier
+        if ((data.final_state && data.final_state.jobs) || data.jobs) {
+          console.log("Found job listing response in fallback - redirecting");
+          // This should have been caught earlier - something went wrong
+          const jobs = data.final_state?.jobs || data.jobs;
+          const jobMatches = jobs.map((job) => ({
+            id: job.jr_id,
+            score: 0.95,
+            metadata: {
+              "Job Title": job.job_title,
+              "Job Description": job.job_description,
+              Location: JSON.stringify(job.location || []),
+              "Skills Required": JSON.stringify(job.mandatory_skills || []),
+              "Skills Optional": JSON.stringify(job.optional_skills || []),
+              Experience: `${job.min_experience_years || 0}-${
+                job.max_experience_years || "Any"
+              } years`,
+              "Mapping Count": job.mappings_count,
+              "Match Threshold": job.match_threshold || 0.5,
+              "Resume Count": job.resume_count || 0,
+              Status: job.status,
+            },
+          }));
+
+          return {
+            jobDetails: { matches: jobMatches },
+            message:
+              data.final_state?.response ||
+              data.message ||
+              `Found ${jobs.length} job${
+                jobs.length > 1 ? "s" : ""
+              } matching your query.`,
+            hasJobDetails: true,
+            showAsJobList: true,
+          };
+        }
+
         throw new Error(
           "I'm having trouble processing your request. Could you please rephrase your query?"
         );
@@ -616,7 +912,7 @@ const ResumeSearchChatBot = () => {
     if (!currentInput || isLoading) return;
 
     // Check if session is initialized
-    if (!threadId) {
+    if (!sessionId) {
       const errorMessage = {
         id: Date.now(),
         type: "bot",
@@ -631,7 +927,9 @@ const ResumeSearchChatBot = () => {
     const userMessage = {
       id: Date.now(),
       type: "user",
-      content: currentInput,
+      content: selectedFile
+        ? `${currentInput} 📎 ${selectedFile.name}`
+        : currentInput,
       timestamp: new Date(),
     };
 
@@ -648,7 +946,23 @@ const ResumeSearchChatBot = () => {
     setSearchProgress({ stage: "", count: 0 });
 
     try {
-      const apiResponse = await searchResumes(currentInput);
+      let apiResponse;
+
+      // Use different API based on user role
+      if (userRole === "HM" || userEmail === "manager@gmail.com") {
+        // For hiring managers, use the run-workflow API with file if attached
+        apiResponse = await fetchHiringManagerWorkflow(
+          currentInput,
+          selectedFile
+        );
+      } else if (userRole === "C") {
+        // For candidates
+        apiResponse = await fetchCandidateWorkflow(currentInput, selectedFile);
+      } else {
+        // For recruiters and candidates, use the existing search API
+        apiResponse = await searchResumes(currentInput);
+      }
+
       console.log("API Response:", apiResponse);
 
       const botMessageId = Date.now() + 1;
@@ -660,7 +974,9 @@ const ResumeSearchChatBot = () => {
         botMessage = {
           id: botMessageId,
           type: "bot",
-          content: apiResponse.message,
+          content: selectedFile
+            ? `✅ Successfully processed your file "${selectedFile.name}" along with your query. ${apiResponse.message}`
+            : apiResponse.message,
           jobDetails: apiResponse.jobDetails,
           timestamp: new Date(),
           shouldType: true,
@@ -685,7 +1001,9 @@ const ResumeSearchChatBot = () => {
         botMessage = {
           id: botMessageId,
           type: "bot",
-          content: apiResponse.message,
+          content: selectedFile
+            ? `✅ Successfully processed your file "${selectedFile.name}". ${apiResponse.message}`
+            : apiResponse.message,
           timestamp: new Date(),
           shouldType: true,
         };
@@ -744,11 +1062,70 @@ const ResumeSearchChatBot = () => {
     } finally {
       setIsLoading(false);
       setSearchProgress({ stage: "", count: 0 });
+      // Clear the selected file after sending
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
       inputRef.current?.focus();
     }
   };
 
   // New action handlers
+  const handleAttachCandidate = async (candidateId, candidateName, jrId) => {
+    setActionLoading((prev) => ({ ...prev, [`attach-${candidateId}`]: true }));
+
+    try {
+      const response = await fetch("/api/recruiter/attach-candidate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          jr_id: jrId,
+          candidate_id: candidateId,
+          session_id: sessionId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Add success message to chat
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now(),
+            type: "bot",
+            content: `Successfully attached ${candidateName} to the job requisition.`,
+            timestamp: new Date(),
+            shouldType: true,
+          },
+        ]);
+      } else {
+        throw new Error(data.error || "Failed to attach candidate");
+      }
+    } catch (error) {
+      console.error("Error attaching candidate:", error);
+      // Add error message to chat
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          type: "bot",
+          content: `Sorry, I couldn't attach ${candidateName} to the job requisition. Please try again.`,
+          timestamp: new Date(),
+          shouldType: true,
+        },
+      ]);
+    } finally {
+      setActionLoading((prev) => ({
+        ...prev,
+        [`attach-${candidateId}`]: false,
+      }));
+    }
+  };
+
   const handleUpdateResume = async (candidateId, candidateName) => {
     setActionLoading((prev) => ({ ...prev, [`update-${candidateId}`]: true }));
 
@@ -896,27 +1273,234 @@ const ResumeSearchChatBot = () => {
   };
 
   // Handle job applications (for candidates)
-  const handleJobApply = async (jobId, jobTitle) => {
-    try {
-      // Simulate job application
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+ const handleJobApply = async (jobId, jobTitle) => {
+  try {
+    // Optional: Add your session_id logic (maybe from context or props)
+    const session_id = sessionId; // make sure this exists in your component
+    const application_remarks = `Applying for ${jobTitle}`;
 
+    // Show immediate feedback (optional)
+    const applyingMessage = {
+      id: Date.now(),
+      type: "bot",
+      content: `🕒 Applying for ${jobTitle}... please wait.`,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, applyingMessage]);
+
+    // 🔥 Call your Next.js API route
+    const response = await fetch("/api/candidate/apply-jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jr_id: jobId,
+        session_id,
+        application_remarks,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (data?.detail === "Failed to create mapping.") {
+      const alreadyMessage = {
+        id: Date.now(),
+        type: "bot",
+        content: `🟡 You’ve already applied for **${jobTitle}**!.`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, alreadyMessage]);
+      return;
+    }
+
+    if (response.ok && data.success !== false) {
       const successMessage = {
         id: Date.now(),
         type: "bot",
-        content: `🎉 Successfully applied to ${jobTitle}! Your application has been submitted and the hiring team will review it shortly. Good luck!`,
+        content: `🎉 Successfully applied to **${jobTitle}**! Your application has been submitted and the hiring team will review it shortly.`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, successMessage]);
-    } catch (error) {
-      console.error("Error applying to job:", error);
+    } else {
+      const failMessage = {
+        id: Date.now(),
+        type: "bot",
+        content: `⚠️ Failed to apply to ${jobTitle}. ${data.message || "Please try again later."}`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, failMessage]);
+    }
+  } catch (error) {
+    console.error("Error applying to job:", error);
+    const errorMessage = {
+      id: Date.now(),
+      type: "bot",
+      content: `❌ Error applying to ${jobTitle}. Please try again later.`,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, errorMessage]);
+  }
+};
+
+
+//Handle Applied JObs
+const handleAppliedJobs = async () => {
+  const session_id = sessionId;
+  try {
+    const res = await fetch(`/api/candidate/applied-jobs?session_id=${session_id}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      toast("Apply The Jobs First", { position: "top-center" });
+      return;
+    }
+
+    // ✅ Combine job info with applied job data (applied_jobs status takes priority)
+    const merged = data.applied_jobs.map((jobMap) => {
+      const jobInfo = data.jobs.find((j) => j.jr_id === jobMap.jr_id);
+      return { ...jobInfo, ...jobMap }; // <-- applied_jobs overwrites jobs data
+    });
+
+    setAppliedJobsData(merged);
+    setShowAppliedJobs(true);
+  } catch (err) {
+    console.error("Error fetching applied jobs:", err);
+  }
+};
+
+
+
+
+
+  // Handle JR modal actions
+  const handleViewJR = (jobDetails) => {
+    setJrModal({ isOpen: true, jobDetails });
+  };
+
+  const handleCopyJR = (jobDetails) => {
+    // Generate JR link based on job title or ID
+    const jrId =
+      jobDetails["Job Title"]?.replace(/\s+/g, "-").toLowerCase() ||
+      "jr-123456";
+    const jrLink = `${window.location.origin}/job-requisition/${jrId}`;
+
+    navigator.clipboard
+      .writeText(jrLink)
+      .then(() => {
+        toast.success("JR Link Copied!", {
+          description: "Job requisition link has been copied to clipboard.",
+          duration: 3000,
+        });
+      })
+      .catch(() => {
+        toast.error("Copy Failed", {
+          description: "Failed to copy link. Please try again.",
+          duration: 3000,
+        });
+      });
+  };
+
+  // Handle role selection from JR dropdowns
+  const handleRoleSelection = async (message) => {
+    // Don't prefill anymore, directly send the API call
+    console.log("Role selection message:", message);
+
+    // Check if session is initialized
+    if (!sessionId) {
       const errorMessage = {
         id: Date.now(),
         type: "bot",
-        content: `❌ Failed to apply to ${jobTitle}. Please try again later.`,
+        content:
+          "Please wait while I initialize the session, or refresh the page if this persists.",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
+      return;
+    }
+
+    // Add user message showing what was assigned
+    const userMessage = {
+      id: Date.now(),
+      type: "user",
+      content: message,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+
+    setIsLoading(true);
+    setSearchProgress({ stage: "", count: 0 });
+
+    try {
+      // Use the hiring manager workflow API for role assignments
+      const apiResponse = await fetchHiringManagerWorkflow(message);
+      console.log("Role assignment API Response:", apiResponse);
+
+      const botMessageId = Date.now() + 1;
+      let botMessage;
+
+      // Handle the response
+      if (apiResponse.jobDetails && apiResponse.hasJobDetails) {
+        // Job details response with updated assignments
+        botMessage = {
+          id: botMessageId,
+          type: "bot",
+          content: apiResponse.message,
+          jobDetails: apiResponse.jobDetails,
+          timestamp: new Date(),
+          shouldType: true,
+        };
+      } else {
+        // Just a confirmation message
+        botMessage = {
+          id: botMessageId,
+          type: "bot",
+          content:
+            apiResponse.message ||
+            "Role assignments have been processed successfully.",
+          timestamp: new Date(),
+          shouldType: true,
+        };
+      }
+
+      setMessages((prev) => [...prev, botMessage]);
+    } catch (error) {
+      console.error("Role assignment error:", error);
+      const errorMessage = {
+        id: Date.now() + 1,
+        type: "bot",
+        content:
+          "Sorry, I encountered an error while processing the role assignments. Please try again.",
+        timestamp: new Date(),
+        shouldType: true,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+      setSearchProgress({ stage: "", count: 0 });
+    }
+  };
+
+  // File upload handlers
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Check file type (optional - you can restrict to specific types)
+      const allowedTypes = [".pdf", ".doc", ".docx", ".txt"];
+      const fileExtension = "." + file.name.split(".").pop().toLowerCase();
+
+      if (allowedTypes.includes(fileExtension)) {
+        setSelectedFile(file);
+      } else {
+        alert("Please select a valid file type (.pdf, .doc, .docx, .txt)");
+        event.target.value = ""; // Reset file input
+      }
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
@@ -1005,6 +1589,12 @@ const ResumeSearchChatBot = () => {
               onScheduleMeeting={handleScheduleMeeting}
               onBulkActions={handleBulkActions}
               onJobApply={handleJobApply}
+              onViewJR={handleViewJR}
+              onCopyJR={handleCopyJR}
+              onRoleSelection={handleRoleSelection}
+              onAttachCandidate={handleAttachCandidate}
+              context={currentContext}
+              sessionId={sessionId}
             />
           ))}
 
@@ -1022,6 +1612,33 @@ const ResumeSearchChatBot = () => {
       {/* Enhanced Input Form */}
       <div className="bg-white border-t border-gray-200 px-4 py-5 shadow-lg">
         <div className="max-w-5xl mx-auto">
+          {/* File Attachment Preview */}
+          {(userRole === "HM" || userEmail === "manager@gmail.com") &&
+            selectedFile && (
+              <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-900">
+                      {selectedFile.name}
+                    </span>
+                    <span className="text-xs text-blue-600">
+                      ({(selectedFile.size / 1024).toFixed(1)} KB)
+                    </span>
+                  </div>
+                  <Button
+                    onClick={handleRemoveFile}
+                    disabled={isLoading}
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
           <div className="relative">
             <div className="flex items-end space-x-4">
               <div className="flex-1 relative">
@@ -1038,7 +1655,7 @@ const ResumeSearchChatBot = () => {
                   }}
                   placeholder={
                     userRole === "HM"
-                      ? "e.g., 'Create a JD for Senior React Developer' or 'I need a job description for Python engineer with 3+ years'"
+                      ? "e.g., 'Create a JD for Senior React Developer' or 'I need a job description for Python engineer with 3+ years' • Attach files for analysis"
                       : userRole === "R"
                       ? "e.g., 'I want 10 React developers' or 'Find me 5 Python engineers with machine learning experience'"
                       : userRole === "C"
@@ -1054,26 +1671,98 @@ const ResumeSearchChatBot = () => {
                       Math.min(e.target.scrollHeight, 120) + "px";
                   }}
                 />
-                <Button
-                  onClick={handleSubmit}
-                  disabled={isLoading}
-                  size="sm"
-                  className="absolute right-3 bottom-3 h-10 w-10 p-0 bg-slate-600 hover:bg-slate-700 text-white"
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <Send className="w-5 h-5" />
+                {/* File Preview — only for Hiring Manager or Coordinator */}
+                
+                <div className="absolute bottom-15 w-full">
+{(userRole === "C") && selectedFile && (
+  <div className="flex items-center justify-between bg-blue-50 text-blue-700 text-sm px-4 py-2 rounded-md border border-blue-200">
+    <div className="flex items-center space-x-2">
+      <FileText className="w-5 h-" />
+      <span className="truncate max-w-[220px]">{selectedFile.name}</span>
+      <span className="text-gray-500 text-xs">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+    </div>
+    <button
+      onClick={() => setSelectedFile(null)}
+      className="text-red-500 hover:text-red-700"
+    >
+      ✕
+    </button>
+  </div>
+)}
+</div>
+
+                <div className="absolute right-3 bottom-3 flex items-center space-x-2">
+                  {/* File Upload Button for Hiring Managers */}
+                  {(userRole === "HM" || userEmail === "manager@gmail.com" || userRole === "C") && (
+                    <>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".pdf,.doc,.docx,.txt"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+                      <Button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isLoading}
+                        size="sm"
+                        variant="outline"
+                        className="h-10 w-10 p-0 border-gray-300 hover:border-blue-400 hover:bg-blue-50"
+                      >
+                        <Upload className="w-5 h-5 text-gray-600" />
+                      </Button>
+                    </>
                   )}
-                </Button>
+
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={isLoading}
+                    size="sm"
+                    className="h-10 w-10 p-0 bg-slate-600 hover:bg-slate-700 text-white"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Send className="w-5 h-5" />
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
           <p className="text-xs text-gray-500 text-center mt-3">
-            Press Enter to search • Shift + Enter for new line • Powered by AI
+            Press Enter to search • Shift + Enter for new line •
+            {(userRole === "HM" || userEmail === "manager@gmail.com" || userRole === "C") &&
+              " Click 📎 to attach files •"}{" "}
+            Powered by AI
           </p>
         </div>
       </div>
+
+
+              {/* Applied JOBS button */}
+{userRole === "C" && (
+  <div className="fixed bottom-40 right-6 z-50">
+    <button
+      onClick={handleAppliedJobs}
+      className="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition-all duration-300 hover:scale-110"
+      title="View Applied Jobs"
+    >
+      <Briefcase className="w-10 h-10" />
+    </button>
+  </div>
+)}
+
+<AppliedJobs
+  isOpen={appliedJobs}
+  onClose={() => setShowAppliedJobs(false)}
+  appliedData={appliedJobsData}
+/>
+
+
+
+
+
 
       {/* Modals */}
       <EmailModal
@@ -1096,6 +1785,12 @@ const ResumeSearchChatBot = () => {
         candidates={bulkModal.candidates}
         onBulkEmail={handleBulkEmail}
         onBulkMeeting={handleBulkMeeting}
+      />
+
+      <JRDetailsModal
+        isOpen={jrModal.isOpen}
+        onClose={() => setJrModal({ isOpen: false, jobDetails: null })}
+        jobDetails={jrModal.jobDetails}
       />
     </div>
   );

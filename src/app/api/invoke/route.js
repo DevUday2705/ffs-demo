@@ -1,6 +1,6 @@
 export async function POST(req) {
     try {
-        const { query, thread_id, role } = await req.json();
+        const { query, session_id, role } = await req.json();
 
         // Add validation
         if (!query || typeof query !== 'string') {
@@ -15,9 +15,9 @@ export async function POST(req) {
             );
         }
 
-        if (!thread_id || typeof thread_id !== 'string') {
+        if (!session_id || typeof session_id !== 'string') {
             return new Response(
-                JSON.stringify({ error: "Thread ID parameter is required and must be a string" }),
+                JSON.stringify({ error: "Session ID parameter is required and must be a string" }),
                 {
                     status: 400,
                     headers: {
@@ -39,23 +39,67 @@ export async function POST(req) {
             );
         }
 
-        console.log("Received query:", query, "Thread ID:", thread_id, "Role:", role);
+        console.log("Received query:", query, "Session ID:", session_id, "Role:", role);
 
         const formData = new URLSearchParams();
         formData.append("query", query);
-        formData.append("thread_id", thread_id);
+        formData.append("session_id", session_id);
         formData.append("role", role);
 
         console.log("Sending to Invoke API:", formData.toString());
 
-        const response = await fetch("https://srv933455.hstgr.cloud:27182/invoke", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-                "ngrok-skip-browser-warning": "true",
-            },
-            body: formData.toString(),
-        });
+        // Create AbortController for timeout handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout for main API
+
+        let response;
+        try {
+            response = await fetch("https://srv933455.hstgr.cloud:40080/recruiter/run-workflow", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "ngrok-skip-browser-warning": "true",
+                },
+                body: formData.toString(),
+                signal: controller.signal,
+            });
+
+            clearTimeout(timeoutId);
+        } catch (fetchError) {
+            clearTimeout(timeoutId);
+
+            if (fetchError.name === 'AbortError') {
+                console.error("Invoke API request timed out after 45 seconds");
+                return new Response(
+                    JSON.stringify({
+                        error: "Request timed out",
+                        message: "The AI service is taking longer than expected. Please try again with a simpler query or check your internet connection.",
+                        timeout: true
+                    }),
+                    {
+                        status: 408, // Request Timeout
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    }
+                );
+            }
+
+            console.error("Invoke API network error:", fetchError);
+            return new Response(
+                JSON.stringify({
+                    error: "Network Error",
+                    message: "Unable to connect to the AI service. Please check your internet connection and try again.",
+                    details: fetchError.message
+                }),
+                {
+                    status: 503, // Service Unavailable
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+        }
 
         console.log("Invoke API Response status:", response.status);
 
@@ -79,7 +123,27 @@ export async function POST(req) {
         const data = await response.json();
         console.log("Invoke API Response data:", data);
 
-        // Handle different response scenarios
+        // Handle new response format with final_state
+        if (data.final_state) {
+            const finalState = data.final_state;
+
+            // Send the complete response data instead of filtering
+            const transformedResponse = {
+                message: finalState.response || "I've processed your request.",
+                ...finalState, // Include all data from final_state
+            };
+
+            console.log("Transformed response:", transformedResponse);
+
+            return new Response(JSON.stringify(transformedResponse), {
+                status: 200,
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            });
+        }
+
+        // Legacy handling for old response format
         // Scenario 1: Direct results with resumes.matches
         if (data.resumes && data.resumes.matches) {
             return new Response(JSON.stringify(data), {
@@ -100,7 +164,7 @@ export async function POST(req) {
             });
         }
 
-        // Scenario 2: No results found
+        // Scenario 3: No results found
         if (data.message && data.message.includes("No results found")) {
             return new Response(JSON.stringify(data), {
                 status: 200,
@@ -110,7 +174,7 @@ export async function POST(req) {
             });
         }
 
-        // Scenario 3: Supervisor message (invalid query)
+        // Scenario 4: Supervisor message (invalid query)
         if (data.message === "Follow-up or pre-handled case.") {
             return new Response(JSON.stringify(data), {
                 status: 200,
@@ -144,3 +208,5 @@ export async function POST(req) {
         );
     }
 }
+
+

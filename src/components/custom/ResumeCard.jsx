@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Star,
   Mail,
@@ -19,10 +19,12 @@ import {
   Linkedin,
   Calculator,
   X,
+  Link2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import ResumeViewer from "./ResumeViewer";
+import AttachJobs from "./AttachJobs";
 import { capitalizeWords } from "@/shared/utils";
 
 const ResumeCard = ({
@@ -41,9 +44,20 @@ const ResumeCard = ({
   onUpdateResume,
   onSendEmail,
   onScheduleMeeting,
+  onAttachCandidate,
+  userRole,
+  context,
+  sessionId,
 }) => {
+  console.log("Resume found", resume);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [isProbabilityModalOpen, setIsProbabilityModalOpen] = useState(false);
+  const [isJobSelectionModalOpen, setIsJobSelectionModalOpen] = useState(false);
+  const [availableJobs, setAvailableJobs] = useState([]);
+  const [isLoadingJobs, setIsLoadingJobs] = useState(false);
+  const [isAttachedJobsModel, setIsAttachedJobsModel] = useState(false);
+  const [attachedJobs, setAttachedJobs] = useState([]);
+  const [mappingCount, setMappingCount] = useState(resume?.metadata?.mappingCount || 0);
 
   // Fixed probability calculation - calculate once and memoize based on resume ID
   const baseScore = resume.metadata.relevance_score || 0.7;
@@ -51,7 +65,13 @@ const ResumeCard = ({
     (baseScore + (parseInt(resume.id.slice(-2), 16) % 30) / 100) * 100
   );
 
+  //Mapping Count
+  // const mappingCount = resume?.metadata?.mappingCount;
+  // console.log(mappingCount)
   // Generate consistent summary based on resume data
+  useEffect(() => {
+  setMappingCount(resume?.metadata?.mappingCount || 0);
+}, [resume]);
   const candidateSummary =
     resume.metadata.summary ||
     `Experienced professional with ${
@@ -59,6 +79,108 @@ const ResumeCard = ({
     } years in the field. Skilled in ${resume.metadata.skills
       ?.slice(0, 3)
       .join(", ")} with a proven track record of delivering results.`;
+
+  // Function to fetch available job requisitions
+  const fetchJobRequisitions = async () => {
+    setIsLoadingJobs(true);
+    try {
+      const response = await fetch(
+        `/api/recruiter/job-requisitions?session_id=${sessionId}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch job requisitions");
+      }
+      const data = await response.json();
+      setAvailableJobs(data.jobs || []);
+      setIsJobSelectionModalOpen(true);
+      setMappingCount(resume?.metadata?.mappingCount || 0)
+    } catch (error) {
+      console.error("Error fetching job requisitions:", error);
+      // Could add error toast here
+    } finally {
+      setIsLoadingJobs(false);
+    }
+  };
+const handleOpenModal = async () => {
+  try {
+    if (!resume?.id || !sessionId) return;
+
+    const response = await fetch(
+      `/api/recruiter/attach-jobs?candidate_id=${resume.id}&session_id=${sessionId}`
+    );
+
+    if (!response.ok) {
+      toast("No Jobs Allocated", { position: "top-center" });
+      setAttachedJobs([]);
+      setMappingCount(0); // ✅ reset mapping count if no jobs
+      return;
+    }
+
+    const data = await response.json();
+    console.log("📦 API Response:", data);
+
+    // ✅ Ensure mappings exist
+    if (!Array.isArray(data.mappings) || data.mappings.length === 0) {
+      toast("No Jobs Allocated", { position: "top-center" });
+      setAttachedJobs([]);
+      setMappingCount(0); // ✅ reset mapping count
+      return;
+    }
+
+    // ✅ Filter out non-object / nested arrays
+    const validMappings = data.mappings.filter(
+      (item) => item && !Array.isArray(item) && typeof item === "object" && item.jr_id
+    );
+
+    if (validMappings.length === 0) {
+      toast("No Jobs Allocated", { position: "top-center" });
+      setAttachedJobs([]);
+      setMappingCount(0);
+      return;
+    }
+
+    // ✅ Format only the valid mapping objects
+    const formattedData = validMappings.map((map) => ({
+      jobId: map.jr_id || "N/A",
+      position: map.job_title || "Unknown Role",
+      status: map.status || "N/A",
+      attachedOn: map.mapped_date
+        ? new Date(map.mapped_date).toLocaleDateString()
+        : "Not Available",
+    }));
+
+    // ✅ Set attached jobs
+    setAttachedJobs(formattedData);
+
+    // ✅ Update mapping count LIVE
+    setMappingCount(validMappings.length);
+
+    setIsAttachedJobsModel(true);
+  } catch (error) {
+    console.error("❌ Error fetching jobs:", error);
+    setAttachedJobs([]);
+    setMappingCount(0);
+  }
+};
+
+
+
+  // Handle attach button click
+  const handleAttachClick = () => {
+    if (context?.jr_id) {
+      // Direct attach if jr_id is available in context
+      onAttachCandidate(resume.id, resume.metadata.name, context.jr_id);
+    } else {
+      // Show job selection modal if no jr_id in context
+      fetchJobRequisitions();
+    }
+  };
+
+  // Handle job selection from modal
+  const handleJobSelection = (selectedJob) => {
+    setIsJobSelectionModalOpen(false);
+    onAttachCandidate(resume.id, resume.metadata.name, selectedJob.jr_id);
+  };
 
   return (
     <>
@@ -89,7 +211,22 @@ const ResumeCard = ({
                     {fixedProbability}% probability
                   </Button>
                 </div>
+               <Button
+  onClick={handleOpenModal}
+  className="absolute cursor-pointer top-8 right-3 flex items-center justify-center gap-1 text-gray-700 hover:text-white-600 transition-all bg-gray-100 hover:bg-gray-200 rounded-full p-2 shadow-sm"
+>
+  <Briefcase size={25} />
+  <span className="text-lg font-semibold">
+    {mappingCount}
+  </span>
+</Button>
+
               </div>
+             <AttachJobs
+  isOpen={isAttachedJobsModel}
+  onClose={() => setIsAttachedJobsModel(false)}
+  attachedJobs={attachedJobs}
+/>
 
               {/* Candidate Summary */}
               <div className="mb-3">
@@ -196,7 +333,13 @@ const ResumeCard = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div
+            className={`grid gap-3 ${
+              userRole === "R" && onAttachCandidate
+                ? "grid-cols-2 lg:grid-cols-5"
+                : "grid-cols-2 lg:grid-cols-4"
+            }`}
+          >
             {/* View Resume */}
             <Button
               onClick={() => setIsViewerOpen(true)}
@@ -257,6 +400,22 @@ const ResumeCard = ({
                 <span>Download</span>
               </a>
             </Button>
+
+            {/* Attach Candidate (for recruiters only) */}
+            {userRole === "R" && onAttachCandidate && (
+              <Button
+                onClick={handleAttachClick}
+                disabled={actionLoading[`attach-${resume.id}`] || isLoadingJobs}
+                className="bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 text-purple-700 hover:text-purple-800 border border-purple-200/50 shadow-sm hover:shadow-md transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                {actionLoading[`attach-${resume.id}`] || isLoadingJobs ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Link2 className="w-4 h-4" />
+                )}
+                <span>{context?.jr_id ? "Attach" : "Attach to Job"}</span>
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -274,6 +433,15 @@ const ResumeCard = ({
         onClose={() => setIsProbabilityModalOpen(false)}
         candidate={resume}
         currentProbability={fixedProbability}
+      />
+
+      {/* Job Selection Modal */}
+      <JobSelectionModal
+        isOpen={isJobSelectionModalOpen}
+        onClose={() => setIsJobSelectionModalOpen(false)}
+        availableJobs={availableJobs}
+        onJobSelect={handleJobSelection}
+        candidateName={resume.metadata.name}
       />
     </>
   );
@@ -484,6 +652,87 @@ const ProbabilityCalculatorModal = ({
               and additional requirements to provide a more accurate probability
               assessment for successful hiring.
             </p>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// Job Selection Modal Component
+const JobSelectionModal = ({
+  isOpen,
+  onClose,
+  availableJobs,
+  onJobSelect,
+  candidateName,
+}) => {
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center space-x-2">
+            <Briefcase className="w-5 h-5 text-purple-600" />
+            <span>
+              Select Job Requisition for {capitalizeWords(candidateName)}
+            </span>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Please select a job requisition to attach this candidate to:
+          </p>
+
+          <div className="max-h-96 overflow-y-auto space-y-2">
+            {availableJobs.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Briefcase className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p>No job requisitions available</p>
+              </div>
+            ) : (
+              availableJobs.map((job) => (
+                <div
+                  key={job.jr_id}
+                  className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                  onClick={() => onJobSelect(job)}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h3 className="font-medium text-gray-900">
+                        {job.job_title}
+                      </h3>
+                      <p className="text-sm text-gray-600 mt-1">
+                        JR ID: {job.jr_id}
+                      </p>
+                      <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                        <span>
+                          Min Experience: {job.min_experience_years || "N/A"}{" "}
+                          years
+                        </span>
+                        <span>
+                          Max Experience:{" "}
+                          {job.max_experience_years || "No limit"} years
+                        </span>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-purple-600 border-purple-200 hover:bg-purple-50"
+                    >
+                      Select
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="flex justify-end pt-4 border-t">
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
           </div>
         </div>
       </DialogContent>

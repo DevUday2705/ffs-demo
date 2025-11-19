@@ -73,10 +73,14 @@ const MessageComponent = ({
   onScheduleMeeting,
   onBulkActions, // New prop for bulk actions
   onJobApply, // New prop for job applications
+  onViewJR, // New prop for viewing JR details
+  onCopyJR, // New prop for copying JR link
+  onRoleSelection, // New prop for role selection
+  onAttachCandidate, // New prop for attaching candidates
   userRole, // New prop for user role
+  context, // Context data from API response
+  sessionId, // Session ID for API calls
 }) => {
-  console.log(userRole);
-
   return (
     <div
       className={`flex items-start space-x-4 ${
@@ -111,73 +115,121 @@ const MessageComponent = ({
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="inline-block px-5 py-4 bg-white border border-gray-200 rounded-2xl shadow-sm max-w-full">
-              {message.shouldType ? (
-                <TypewriterText
-                  text={message.content}
-                  messageId={message.id}
-                  completedAnimations={completedAnimations}
-                  setCompletedAnimations={setCompletedAnimations}
-                  setIsTypingComplete={setIsTypingComplete}
-                />
-              ) : (
-                <p className="text-sm leading-relaxed text-gray-800">
-                  {message.content}
-                </p>
-              )}
-            </div>
+            {console.log("Message", message)}
 
-            {/* Job Details (for Hiring Managers) */}
-            {message.jobDetails && isTypingComplete && userRole === "HM" && (
-              <div className="mt-4">
-                <JobDetailsComponent jobDetails={message.jobDetails} />
-              </div>
-            )}
-
-            {/* Job Listings (for Candidates) */}
-            {userRole === "C" &&
-              message.jobDetails &&
-              message.jobDetails.matches.length > 0 &&
-              isTypingComplete && (
-                <div className="space-y-4 mt-4">
-                  <motion.div
-                    className="grid gap-4"
-                    initial="hidden"
-                    animate="visible"
-                    variants={{
-                      visible: {
-                        transition: {
-                          staggerChildren: 0.1,
-                        },
-                      },
-                    }}
-                  >
-                    {message.jobDetails.matches.map((job, jobIndex) => (
+            {/* Job Details (for Hiring Managers and Recruiters) */}
+            {message.jobDetails &&
+              isTypingComplete &&
+              (userRole === "HM" || userRole === "R") && (
+                <div className="mt-4">
+                  {/* Check if this is a job list (has matches array) or single job details */}
+                  {message.jobDetails.matches &&
+                  message.jobDetails.matches.length >= 0 ? (
+                    // Render job list for HM when viewing all jobs
+                    <div className="space-y-4">
                       <motion.div
-                        key={job.id}
+                        className="grid gap-4"
+                        initial="hidden"
+                        animate="visible"
                         variants={{
-                          hidden: {
-                            opacity: 0,
-                            y: 20,
-                            scale: 0.95,
-                          },
                           visible: {
-                            opacity: 1,
-                            y: 0,
-                            scale: 1,
+                            transition: {
+                              staggerChildren: 0.1,
+                            },
                           },
-                        }}
-                        transition={{
-                          duration: 0.4,
-                          ease: [0.4, 0, 0.2, 1],
                         }}
                       >
-                        <JobCard job={job} onApply={onJobApply || (() => {})} />
+                        {message.jobDetails.matches.map((job, jobIndex) => (
+                          <motion.div
+                            key={job.id}
+                            variants={{
+                              hidden: {
+                                opacity: 0,
+                                y: 20,
+                                scale: 0.95,
+                              },
+                              visible: {
+                                opacity: 1,
+                                y: 0,
+                                scale: 1,
+                              },
+                            }}
+                            transition={{
+                              duration: 0.4,
+                              ease: [0.4, 0, 0.2, 1],
+                            }}
+                          >
+                            <JobCard
+                              job={job}
+                              sessionId={sessionId}
+                              onApply={onJobApply || (() => {})}
+                              onAttachCandidate={onAttachCandidate}
+                              userRole={userRole}
+                              context={message.context}
+                            />
+                          </motion.div>
+                        ))}
                       </motion.div>
-                    ))}
-                  </motion.div>
+                    </div>
+                  ) : (
+                    // Render single job details component for draft JR
+                    <JobDetailsComponent
+                      jobDetails={message.jobDetails}
+                      onViewJR={onViewJR}
+                      onCopyJR={onCopyJR}
+                      onRoleSelection={onRoleSelection}
+                    />
+                  )}
                 </div>
               )}
+
+            {/* Job Listings (for Candidates) */}
+            {userRole === "C" && isTypingComplete && (
+              <>
+                {/* If there's a list of jobs */}
+                {message.jobDetails?.list &&
+                message.jobDetails.list.length > 0 ? (
+                  <div className="space-y-4 mt-4">
+                    <motion.div
+                      className="grid gap-4"
+                      initial="hidden"
+                      animate="visible"
+                      variants={{
+                        visible: {
+                          transition: { staggerChildren: 0.1 },
+                        },
+                      }}
+                    >
+                      {message.jobDetails.list.map((job, index) => (
+                        <motion.div
+                          key={job.id || index}
+                          variants={{
+                            hidden: { opacity: 0, y: 20, scale: 0.95 },
+                            visible: { opacity: 1, y: 0, scale: 1 },
+                          }}
+                          transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                        >
+                          <JobCard
+                            job={job}
+                            sessionId={sessionId}
+                            onApply={onJobApply || (() => {})}
+                            onAttachCandidate={onAttachCandidate}
+                            userRole={userRole}
+                          />
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  </div>
+                ) : (
+                  // Else: fallback message from backend
+                  message.jobDetails?.response && (
+                    <div className="p-4 text-gray-700 text-center">
+                      {message.jobDetails.response}
+                    </div>
+                  )
+                )}
+              </>
+            )}
 
             {/* Resume Results */}
             {message.resumes &&
@@ -239,12 +291,33 @@ const MessageComponent = ({
                           onUpdateResume={onUpdateResume}
                           onSendEmail={onSendEmail}
                           onScheduleMeeting={onScheduleMeeting}
+                          onAttachCandidate={onAttachCandidate}
+                          userRole={userRole}
+                          context={context}
+                          sessionId={sessionId}
                         />
                       </motion.div>
                     ))}
                   </motion.div>
                 </div>
               )}
+
+            {/* Bot Text Message - shown after all cards */}
+            <div className="inline-block px-5 py-4 bg-white border border-gray-200 rounded-2xl shadow-sm max-w-full">
+              {message.shouldType ? (
+                <TypewriterText
+                  text={message.content}
+                  messageId={message.id}
+                  completedAnimations={completedAnimations}
+                  setCompletedAnimations={setCompletedAnimations}
+                  setIsTypingComplete={setIsTypingComplete}
+                />
+              ) : (
+                <p className="text-sm leading-relaxed text-gray-800">
+                  {message.content}
+                </p>
+              )}
+            </div>
           </div>
         )}
         <p className="text-xs text-gray-500 mt-2 px-1">

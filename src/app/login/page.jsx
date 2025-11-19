@@ -29,10 +29,14 @@ const LoginPage = () => {
   const [formData, setFormData] = useState({
     username: "",
     password: "",
+    selectedRole: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [roleSelectionRequired, setRoleSelectionRequired] = useState(false);
+  const [availableRoles, setAvailableRoles] = useState([]);
+  const [roleSelectionMessage, setRoleSelectionMessage] = useState("");
   const router = useRouter();
 
   const handleSubmit = async (e) => {
@@ -47,29 +51,75 @@ const LoginPage = () => {
       return;
     }
 
-    // Define valid roles and their mappings
-    const validUsers = {
-      "manager@gmail.com": { role: "HM", roleLabel: "Hiring Manager" },
-      "recruiter@gmail.com": { role: "R", roleLabel: "Recruiter" },
-      "candidate@gmail.com": { role: "C", roleLabel: "Candidate" },
-    };
+    // If role selection is required but no role selected
+    if (roleSelectionRequired && !formData.selectedRole) {
+      setError("Please select a role to continue");
+      setIsLoading(false);
+      return;
+    }
 
-    // Check if username is valid and password is correct
-    if (validUsers[formData.username] && formData.password === "password") {
-      const userInfo = validUsers[formData.username];
+    try {
+      const payload = {
+        email_id: formData.username,
+        password: formData.password,
+      };
 
-      // Simulate loading
-      setTimeout(() => {
+      // Add agent_type if role is selected (second call)
+      if (roleSelectionRequired && formData.selectedRole) {
+        payload.agent_type = formData.selectedRole;
+      }
+
+      console.log("Sending login request:", payload);
+
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      console.log("Login API response:", data);
+
+      if (!response.ok) {
+        setError(data.message || data.error || "Login failed");
+        setIsLoading(false);
+        return;
+      }
+
+      // Handle role selection required
+      if (data.role_selection_required) {
+        setRoleSelectionRequired(true);
+        setAvailableRoles(data.available_roles || []);
+        setRoleSelectionMessage(
+          data.message || "Multiple roles found. Please select one."
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      // Handle successful login
+      if (data.success && data.session_id) {
+        // Store user data in localStorage
         localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("userEmail", formData.username);
-        localStorage.setItem("userRole", userInfo.role);
-        localStorage.setItem("userRoleLabel", userInfo.roleLabel);
-        router.push("/chatbot");
-      }, 1500);
-    } else {
-      setError(
-        "Invalid credentials. Use manager@gmail.com, recruiter@gmail.com, or candidate@gmail.com with password 'password'."
-      );
+        localStorage.setItem("userEmail", data.email);
+        localStorage.setItem("userRole", data.role);
+        localStorage.setItem("userRoleLabel", data.roleLabel);
+        localStorage.setItem("sessionId", data.session_id);
+        localStorage.setItem("isAuthenticated", "true");
+
+        // Simulate loading before redirect
+        setTimeout(() => {
+          router.push("/chatbot");
+        }, 1000);
+      } else {
+        setError("Login failed. Please try again.");
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      setError("Network error. Please try again.");
       setIsLoading(false);
     }
   };
@@ -242,6 +292,48 @@ const LoginPage = () => {
                   </div>
                 </div>
 
+                {/* Role Selection (shown when multiple roles are available) */}
+                {roleSelectionRequired && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    transition={{ duration: 0.3 }}
+                    className="space-y-3"
+                  >
+                    <Label className="text-sm font-medium text-gray-700">
+                      Select Role
+                    </Label>
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm mb-3">
+                      {roleSelectionMessage}
+                    </div>
+                    <div className="space-y-2">
+                      {availableRoles.map((role) => (
+                        <label
+                          key={role}
+                          className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                        >
+                          <input
+                            type="radio"
+                            name="role"
+                            value={role}
+                            checked={formData.selectedRole === role}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                selectedRole: e.target.value,
+                              })
+                            }
+                            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                          />
+                          <span className="text-sm font-medium text-gray-700 capitalize">
+                            {role.replace("_", " ")}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+
                 {/* Error Message */}
                 {error && (
                   <motion.div
@@ -261,23 +353,21 @@ const LoginPage = () => {
                   </div>
                   <div className="text-xs space-y-1 ml-6">
                     <div>
-                      Emails:{" "}
+                      Single Role:{" "}
                       <code className="bg-blue-100 px-1 rounded">
-                        manager@gmail.com
-                      </code>
-                      ,{" "}
-                      <code className="bg-blue-100 px-1 rounded">
-                        recruiter@gmail.com
-                      </code>
-                      ,{" "}
-                      <code className="bg-blue-100 px-1 rounded">
-                        candidate@gmail.com
+                        alok.raj@sumodigitech.com
                       </code>
                     </div>
-                    {/* <div>
+                    <div>
+                      Multi Role:{" "}
+                      <code className="bg-blue-100 px-1 rounded">
+                        uday.kulkarni@sumodigitech.com
+                      </code>
+                    </div>
+                    <div>
                       Password:{" "}
                       <code className="bg-blue-100 px-1 rounded">password</code>
-                    </div> */}
+                    </div>
                   </div>
                 </div>
 

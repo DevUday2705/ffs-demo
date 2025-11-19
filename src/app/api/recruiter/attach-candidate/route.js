@@ -1,23 +1,11 @@
 export async function POST(req) {
     try {
-        // Handle FormData sent from navigator.sendBeacon
-        const formData = await req.formData();
-        const session_id = formData.get('session_id');
+        const { jr_id, candidate_id, session_id } = await req.json();
 
-        console.log("Received FormData entries:");
-        for (const [key, value] of formData.entries()) {
-            console.log(`${key}: ${value}`);
-        }
-        console.log("Extracted session_id:", session_id);
-
-        // Validate session_id
-        if (!session_id || typeof session_id !== 'string' || session_id.trim() === '') {
-            console.log("Invalid session_id:", { session_id, type: typeof session_id, length: session_id?.length });
+        // Add validation
+        if (!jr_id || typeof jr_id !== 'string') {
             return new Response(
-                JSON.stringify({
-                    error: "session_id is required and must be a non-empty string",
-                    received: { value: session_id, type: typeof session_id }
-                }),
+                JSON.stringify({ error: "JR ID parameter is required and must be a string" }),
                 {
                     status: 400,
                     headers: {
@@ -27,13 +15,38 @@ export async function POST(req) {
             );
         }
 
-        console.log("Cleaning up session for session_id:", session_id);
+        if (!candidate_id || typeof candidate_id !== 'string') {
+            return new Response(
+                JSON.stringify({ error: "Candidate ID parameter is required and must be a string" }),
+                {
+                    status: 400,
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+        }
 
-        // Create URLSearchParams for x-www-form-urlencoded format
-        const formBody = new URLSearchParams();
-        formBody.append('session_id', session_id);
+        if (!session_id || typeof session_id !== 'string') {
+            return new Response(
+                JSON.stringify({ error: "Session ID parameter is required and must be a string" }),
+                {
+                    status: 400,
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+        }
 
-        console.log("Request body being sent:", formBody.toString());
+        console.log("Attaching candidate:", { jr_id, candidate_id, session_id });
+
+        const formData = new URLSearchParams();
+        formData.append("jr_id", jr_id);
+        formData.append("candidate_id", candidate_id);
+        formData.append("session_id", session_id);
+
+        console.log("Sending to Attach Candidate API:", formData.toString());
 
         // Create AbortController for timeout handling
         const controller = new AbortController();
@@ -41,13 +54,13 @@ export async function POST(req) {
 
         let response;
         try {
-            response = await fetch("https://srv933455.hstgr.cloud:40080/session/end", {
+            response = await fetch("https://srv933455.hstgr.cloud:40080/recruiter/attach-candidate", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded",
                     "ngrok-skip-browser-warning": "true",
                 },
-                body: formBody.toString(),
+                body: formData.toString(),
                 signal: controller.signal,
             });
 
@@ -56,16 +69,15 @@ export async function POST(req) {
             clearTimeout(timeoutId);
 
             if (fetchError.name === 'AbortError') {
-                console.error("Session cleanup request timed out after 30 seconds");
-                // For session cleanup, we can be more lenient and return success even on timeout
-                // since the session might still be cleaned up server-side
+                console.error("Attach Candidate API request timed out after 30 seconds");
                 return new Response(
                     JSON.stringify({
-                        message: "Session cleanup request timed out, but session may still be cleaned up",
+                        error: "Request timed out",
+                        message: "The attachment process is taking longer than expected. Please try again.",
                         timeout: true
                     }),
                     {
-                        status: 200, // Return 200 instead of error for cleanup timeout
+                        status: 408, // Request Timeout
                         headers: {
                             "Content-Type": "application/json",
                         },
@@ -73,15 +85,15 @@ export async function POST(req) {
                 );
             }
 
-            console.error("Session cleanup network error:", fetchError);
-            // For network errors during cleanup, also return success to avoid blocking user actions
+            console.error("Attach Candidate API network error:", fetchError);
             return new Response(
                 JSON.stringify({
-                    message: "Network error during session cleanup, but continuing normally",
-                    error: fetchError.message
+                    error: "Network Error",
+                    message: "Unable to connect to the service. Please check your internet connection and try again.",
+                    details: fetchError.message
                 }),
                 {
-                    status: 200, // Return 200 to allow user to continue
+                    status: 503, // Service Unavailable
                     headers: {
                         "Content-Type": "application/json",
                     },
@@ -89,14 +101,14 @@ export async function POST(req) {
             );
         }
 
-        console.log("Cleanup API Response status:", response.status);
+        console.log("Attach Candidate API Response status:", response.status);
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error("Cleanup API Error:", errorText);
+            console.error("Attach Candidate API Error:", errorText);
             return new Response(
                 JSON.stringify({
-                    error: `Cleanup API request failed with status ${response.status}`,
+                    error: `API request failed with status ${response.status}`,
                     details: errorText
                 }),
                 {
@@ -109,7 +121,7 @@ export async function POST(req) {
         }
 
         const data = await response.json();
-        console.log("Cleanup API Response data:", data);
+        console.log("Attach Candidate API Response data:", data);
 
         return new Response(JSON.stringify(data), {
             status: 200,
@@ -118,10 +130,10 @@ export async function POST(req) {
             },
         });
     } catch (err) {
-        console.error("Session cleanup error:", err);
+        console.error("Attach Candidate Server Error:", err);
         return new Response(
             JSON.stringify({
-                error: "Session cleanup failed",
+                error: "Server Error",
                 message: err.message,
                 stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
             }),
