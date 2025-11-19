@@ -57,6 +57,7 @@ const ResumeCard = ({
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   const [isAttachedJobsModel, setIsAttachedJobsModel] = useState(false);
   const [attachedJobs, setAttachedJobs] = useState([]);
+  const [mappingCount, setMappingCount] = useState(resume?.metadata?.mappingCount || 0);
 
   // Fixed probability calculation - calculate once and memoize based on resume ID
   const baseScore = resume.metadata.relevance_score || 0.7;
@@ -65,9 +66,12 @@ const ResumeCard = ({
   );
 
   //Mapping Count
-  const mappingCount = resume?.metadata?.mappingCount;
-  console.log(mappingCount)
+  // const mappingCount = resume?.metadata?.mappingCount;
+  // console.log(mappingCount)
   // Generate consistent summary based on resume data
+  useEffect(() => {
+  setMappingCount(resume?.metadata?.mappingCount || 0);
+}, [resume]);
   const candidateSummary =
     resume.metadata.summary ||
     `Experienced professional with ${
@@ -89,7 +93,7 @@ const ResumeCard = ({
       const data = await response.json();
       setAvailableJobs(data.jobs || []);
       setIsJobSelectionModalOpen(true);
-      setAttachedJobs(attachedJobs.length)
+      setMappingCount(resume?.metadata?.mappingCount || 0)
     } catch (error) {
       console.error("Error fetching job requisitions:", error);
       // Could add error toast here
@@ -97,8 +101,7 @@ const ResumeCard = ({
       setIsLoadingJobs(false);
     }
   };
-
- const handleOpenModal = async () => {
+const handleOpenModal = async () => {
   try {
     if (!resume?.id || !sessionId) return;
 
@@ -109,6 +112,7 @@ const ResumeCard = ({
     if (!response.ok) {
       toast("No Jobs Allocated", { position: "top-center" });
       setAttachedJobs([]);
+      setMappingCount(0); // ✅ reset mapping count if no jobs
       return;
     }
 
@@ -119,6 +123,7 @@ const ResumeCard = ({
     if (!Array.isArray(data.mappings) || data.mappings.length === 0) {
       toast("No Jobs Allocated", { position: "top-center" });
       setAttachedJobs([]);
+      setMappingCount(0); // ✅ reset mapping count
       return;
     }
 
@@ -130,6 +135,7 @@ const ResumeCard = ({
     if (validMappings.length === 0) {
       toast("No Jobs Allocated", { position: "top-center" });
       setAttachedJobs([]);
+      setMappingCount(0);
       return;
     }
 
@@ -143,13 +149,20 @@ const ResumeCard = ({
         : "Not Available",
     }));
 
+    // ✅ Set attached jobs
     setAttachedJobs(formattedData);
+
+    // ✅ Update mapping count LIVE
+    setMappingCount(validMappings.length);
+
     setIsAttachedJobsModel(true);
   } catch (error) {
     console.error("❌ Error fetching jobs:", error);
     setAttachedJobs([]);
+    setMappingCount(0);
   }
 };
+
 
 
   // Handle attach button click
@@ -204,7 +217,7 @@ const ResumeCard = ({
 >
   <Briefcase size={25} />
   <span className="text-lg font-semibold">
-    {attachedJobs.length || mappingCount || 0}
+    {mappingCount}
   </span>
 </Button>
 

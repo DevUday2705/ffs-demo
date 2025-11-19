@@ -124,7 +124,7 @@ const MessageComponent = ({
                 <div className="mt-4">
                   {/* Check if this is a job list (has matches array) or single job details */}
                   {message.jobDetails.matches &&
-                  message.jobDetails.matches.length > 0 ? (
+                  message.jobDetails.matches.length >= 0 ? (
                     // Render job list for HM when viewing all jobs
                     <div className="space-y-4">
                       <motion.div

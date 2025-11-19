@@ -194,7 +194,7 @@ export default function CandidateTotalJobs({ isOpen, onClose, candidateId, sessi
                       id="remarks"
                       rows="2"
                       placeholder="Add remarks (optional)"
-                      className="border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                      className="border capitalize rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
                       value={remarksMap[cand.id] || ""}
                       onChange={(e) =>
                         setRemarksMap((prev) => ({

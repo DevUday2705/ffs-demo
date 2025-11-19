@@ -1671,6 +1671,26 @@ const handleAppliedJobs = async () => {
                       Math.min(e.target.scrollHeight, 120) + "px";
                   }}
                 />
+                {/* File Preview — only for Hiring Manager or Coordinator */}
+                
+                <div className="absolute bottom-15 w-full">
+{(userRole === "C") && selectedFile && (
+  <div className="flex items-center justify-between bg-blue-50 text-blue-700 text-sm px-4 py-2 rounded-md border border-blue-200">
+    <div className="flex items-center space-x-2">
+      <FileText className="w-5 h-" />
+      <span className="truncate max-w-[220px]">{selectedFile.name}</span>
+      <span className="text-gray-500 text-xs">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+    </div>
+    <button
+      onClick={() => setSelectedFile(null)}
+      className="text-red-500 hover:text-red-700"
+    >
+      ✕
+    </button>
+  </div>
+)}
+</div>
+
                 <div className="absolute right-3 bottom-3 flex items-center space-x-2">
                   {/* File Upload Button for Hiring Managers */}
                   {(userRole === "HM" || userEmail === "manager@gmail.com" || userRole === "C") && (
