@@ -54,7 +54,7 @@ Sumo Digitech
         emails: [
           {
             name: candidate.metadata?.name || "Candidate",
-            email: emailData?.to, // Hardcoded for now as requested
+            email: emailData?.sachin925454@gmail.com, // Hardcoded for now as requested
             subject: emailData.subject,
             body: emailData.body,
           },
