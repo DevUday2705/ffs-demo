@@ -32,7 +32,7 @@ const EmailModal = ({ isOpen, onClose, candidate, onSend }) => {
         subject: `Job Opportunity - ${candidate.metadata?.name || "Candidate"}`,
         body: `Dear ${candidate.metadata?.name || "Candidate"},
 
-I hope this email finds you well. We came across your resume and are impressed with your background and experience.
+I hope this email finds you well. We came across your resume and are impressed with your skills and experience.
 
 We have an exciting opportunity that might be of interest to you. Based on your skills and experience, we believe you would be a great fit for our team.
 
