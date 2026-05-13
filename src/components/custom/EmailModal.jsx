@@ -50,11 +50,11 @@ Sumo Digitech
     setSending(true);
     try {
       // Prepare email payload for the API
-      const emailPayload = {
+       const emailPayload = {
         emails: [
           {
             name: candidate.metadata?.name || "Candidate",
-            email: "devuday2705@gmail.com", // Hardcoded for now as requested
+            email: emailData?.to, // Hardcoded for now as requested
             subject: emailData.subject,
             body: emailData.body,
           },
