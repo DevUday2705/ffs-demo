@@ -28,7 +28,7 @@ const EmailModal = ({ isOpen, onClose, candidate, onSend }) => {
   useEffect(() => {
     if (candidate && isOpen) {
       setEmailData({
-        to: "sachin@gmail.com", // Hardcoded as requested
+        to: "sachin925454@gmail.com", // Hardcoded as requested
         subject: `Job Opportunity - ${candidate.metadata?.name || "Candidate"}`,
         body: `Dear ${candidate.metadata?.name || "Candidate"},
 
@@ -54,7 +54,7 @@ Sumo Digitech
         emails: [
           {
             name: candidate.metadata?.name || "Candidate",
-            email: emailData?.sachin925454@gmail.com, // Hardcoded for now as requested
+            email: "sachin925454@gmail.com", // Hardcoded for now as requested
             subject: emailData.subject,
             body: emailData.body,
           },
