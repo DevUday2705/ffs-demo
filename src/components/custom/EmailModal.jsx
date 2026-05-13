@@ -28,7 +28,7 @@ const EmailModal = ({ isOpen, onClose, candidate, onSend }) => {
   useEffect(() => {
     if (candidate && isOpen) {
       setEmailData({
-        to: "devuday2705@gmail.com", // Hardcoded as requested
+        to: "sachin@gmail.com", // Hardcoded as requested
         subject: `Job Opportunity - ${candidate.metadata?.name || "Candidate"}`,
         body: `Dear ${candidate.metadata?.name || "Candidate"},
 
